@@ -49,6 +49,7 @@ interface PipelineStatus {
     progress: number;
     syntheticExamples: number;
     currentStep: string;
+    outputPhase: 1 | 2 | 3 | 4 | 5;
   };
 }
 
@@ -70,10 +71,14 @@ const Dashboard = ({
       progress: 0,
       syntheticExamples: 0,
       currentStep: "Waiting for Stage 1 completion",
+      outputPhase: 1,
     },
   });
   const [selectedPdfs, setSelectedPdfs] = useState<string[]>([]);
   const [discoveredPdfs, setDiscoveredPdfs] = useState<string[]>([]);
+  const [selectedOutputPhase, setSelectedOutputPhase] = useState<
+    1 | 2 | 3 | 4 | 5
+  >(1);
 
   // Map database types to display names
   const databaseLabels = {
@@ -133,7 +138,10 @@ const Dashboard = ({
     }
   };
 
-  const startStage2 = async (pdfFiles: string[]) => {
+  const startStage2 = async (
+    pdfFiles: string[],
+    outputPhase: 1 | 2 | 3 | 4 | 5 = selectedOutputPhase,
+  ) => {
     if (!pdfFiles || pdfFiles.length === 0) return;
 
     setPipelineStatus((prev) => ({
@@ -142,47 +150,108 @@ const Dashboard = ({
         ...prev.stage2,
         status: "running",
         progress: 0,
-        currentStep: "Initializing GPU-accelerated processing...",
+        currentStep: `Initializing PHASE ${outputPhase} processing for ${pdfFiles.length} file${pdfFiles.length > 1 ? "s" : ""}...`,
+        outputPhase,
       },
     }));
 
-    const steps = [
-      "Checking GPU availability (Ollama/Groq)...",
-      "Extracting text from seed PDF...",
-      "Generating synthetic error patterns (GPU)...",
-      "Creating best practices library (GPU)...",
-      "Generating troubleshooting scenarios (GPU)...",
-      "Building configuration examples (GPU)...",
-      "Combining real + synthetic data...",
-      "Creating high-density embeddings (GPU)...",
-      "Optimizing for 93%+ RAG accuracy...",
-      "Finalizing Chroma vector store...",
-    ];
+    const phaseSteps = {
+      1: [
+        "Checking GPU availability (Ollama/Groq)...",
+        "Extracting text from seed PDF...",
+        "Generating synthetic error patterns (GPU)...",
+        "Creating best practices library (GPU)...",
+        "Generating troubleshooting scenarios (GPU)...",
+        "Building configuration examples (GPU)...",
+        "Combining real + synthetic data...",
+        "Creating high-density embeddings (GPU)...",
+        "Optimizing for basic RAG accuracy...",
+        "Finalizing basic Chroma vector store...",
+      ],
+      2: [
+        "Initializing Hierarchical Index structure...",
+        "Parsing configurations into structured chunks...",
+        "Building device memory filters...",
+        "Creating feature-area taxonomies...",
+        "Implementing version-aware filtering...",
+        "Optimizing retrieval precision...",
+        "Building foundational index (80-88% accuracy)...",
+        "Finalizing hierarchical vector store...",
+      ],
+      3: [
+        "Building Graph RAG knowledge graph...",
+        "Creating device-feature relationships...",
+        "Mapping error-solution dependencies...",
+        "Building version compatibility graph...",
+        "Implementing graph-aware retrieval...",
+        "Optimizing for dependency nuance...",
+        "Achieving low 90s accuracy target...",
+        "Finalizing Graph RAG layer...",
+      ],
+      4: [
+        "Initializing Agentic Loop framework...",
+        "Building tool execution pipeline...",
+        "Creating hypothesis validation system...",
+        "Implementing iterative evidence gathering...",
+        "Building command execution interface...",
+        "Creating validated case repository...",
+        "Optimizing for upper 90s accuracy...",
+        "Finalizing Agentic Loop system...",
+      ],
+      5: [
+        "Setting up continuous evaluation harness...",
+        "Building gold standard test sets...",
+        "Implementing regression monitoring...",
+        "Creating feedback capture system...",
+        "Building automated hardening pipeline...",
+        "Implementing accuracy maintenance...",
+        "Achieving ≥95% in-scope accuracy...",
+        "Finalizing continuous eval system...",
+      ],
+    };
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-      const progress = ((i + 1) / steps.length) * 100;
+    const steps = phaseSteps[outputPhase];
+    const totalSteps = steps.length * pdfFiles.length; // Account for processing multiple files
+    let currentStepIndex = 0;
 
-      // Simulate more realistic synthetic data generation
-      let syntheticExamples = 0;
-      if (i >= 2) {
-        // Exponential growth in synthetic examples
-        syntheticExamples =
-          Math.floor(Math.pow(2, i - 1) * 250) +
-          Math.floor(Math.random() * 500);
-        syntheticExamples = Math.min(syntheticExamples, 15000); // Cap at 15k for realism
+    // Process each PDF file sequentially
+    for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
+      const currentFile = pdfFiles[fileIndex];
+
+      for (let i = 0; i < steps.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        currentStepIndex++;
+        const progress = (currentStepIndex / totalSteps) * 100;
+
+        // Simulate more realistic synthetic data generation
+        let syntheticExamples = 0;
+        if (i >= 2) {
+          // Exponential growth in synthetic examples, multiplied by number of files
+          const baseExamples =
+            Math.floor(Math.pow(2, i - 1) * 250) +
+            Math.floor(Math.random() * 500);
+          syntheticExamples = Math.min(
+            baseExamples * (fileIndex + 1),
+            15000 * pdfFiles.length,
+          );
+        }
+
+        const currentStep =
+          pdfFiles.length > 1
+            ? `[File ${fileIndex + 1}/${pdfFiles.length}: ${currentFile}] ${steps[i]}`
+            : steps[i];
+
+        setPipelineStatus((prev) => ({
+          ...prev,
+          stage2: {
+            ...prev.stage2,
+            progress,
+            currentStep,
+            syntheticExamples,
+            status: currentStepIndex === totalSteps ? "completed" : "running",
+          },
+        }));
       }
-
-      setPipelineStatus((prev) => ({
-        ...prev,
-        stage2: {
-          ...prev.stage2,
-          progress,
-          currentStep: steps[i],
-          syntheticExamples,
-          status: i === steps.length - 1 ? "completed" : "running",
-        },
-      }));
     }
 
     // Mark the processed documents
@@ -206,6 +275,7 @@ const Dashboard = ({
         progress: 0,
         syntheticExamples: 0,
         currentStep: "Waiting for Stage 1 completion",
+        outputPhase: 1,
       },
     });
     setSelectedPdfs([]);
@@ -629,7 +699,8 @@ const Dashboard = ({
 
                     <Button
                       onClick={() =>
-                        selectedPdfs.length > 0 && startStage2(selectedPdfs)
+                        selectedPdfs.length > 0 &&
+                        startStage2(selectedPdfs, selectedOutputPhase)
                       }
                       disabled={
                         pipelineStatus.stage1.status !== "completed" ||
@@ -645,8 +716,8 @@ const Dashboard = ({
                         <Factory className="h-4 w-4" />
                       )}
                       {pipelineStatus.stage2.status === "completed"
-                        ? "Restart Stage 2"
-                        : "Start Stage 2"}
+                        ? `Restart Stage 2 (Phase ${selectedOutputPhase}) - ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}`
+                        : `Start Stage 2 (Phase ${selectedOutputPhase}) - ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}`}
                     </Button>
 
                     <Button
@@ -659,6 +730,115 @@ const Dashboard = ({
                     >
                       Reset Pipeline
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Output Phase Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>RAG Output Phase Selection</CardTitle>
+                  <CardDescription>
+                    Choose the output phase for your RAG system. Each phase
+                    builds upon the previous to achieve higher accuracy.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-3">
+                      {[
+                        {
+                          phase: 1 as const,
+                          title:
+                            "PHASE 1: Multi-Stage Synthetic Knowledge Amplification",
+                          description:
+                            "Current solution - Generate synthetic Q/A, error patterns, and minimal config exemplars to bootstrap domain coverage.",
+                          accuracy: "Basic RAG",
+                          color: "blue",
+                        },
+                        {
+                          phase: 2 as const,
+                          title:
+                            "PHASE 2: Foundational Hierarchical Index + Memory Filters",
+                          description:
+                            "Parse configs/docs into structured chunks and filter retrieval by live device context; reach ~80–88% quickly.",
+                          accuracy: "80-88%",
+                          color: "green",
+                        },
+                        {
+                          phase: 3 as const,
+                          title: "PHASE 3: Graph RAG Layer",
+                          description:
+                            "Link devices, features, errors, and bugs; graph-expand + constrain retrieval for nuanced dependency/version issues; low 90s accuracy.",
+                          accuracy: "Low 90s%",
+                          color: "purple",
+                        },
+                        {
+                          phase: 4 as const,
+                          title: "PHASE 4: Agentic Loop",
+                          description:
+                            "Plan/act/check tool calls to gather missing evidence and validate recommendations; close hard troubleshooting cases; push upper 90s.",
+                          accuracy: "Upper 90s%",
+                          color: "orange",
+                        },
+                        {
+                          phase: 5 as const,
+                          title: "PHASE 5: Continuous Eval/Hardening",
+                          description:
+                            "Gold-set monitoring, feedback capture, parser/graph regression fixes; maintain ≥95% in-scope accuracy over time.",
+                          accuracy: "≥95%",
+                          color: "red",
+                        },
+                      ].map((phaseInfo) => (
+                        <div
+                          key={phaseInfo.phase}
+                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                            selectedOutputPhase === phaseInfo.phase
+                              ? `border-${phaseInfo.color}-500 bg-${phaseInfo.color}-50`
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                          onClick={() =>
+                            setSelectedOutputPhase(phaseInfo.phase)
+                          }
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span
+                                  className={`text-sm font-bold px-2 py-1 rounded bg-${phaseInfo.color}-100 text-${phaseInfo.color}-800`}
+                                >
+                                  {phaseInfo.accuracy}
+                                </span>
+                                {selectedOutputPhase === phaseInfo.phase && (
+                                  <CheckCircle
+                                    className={`h-4 w-4 text-${phaseInfo.color}-500`}
+                                  />
+                                )}
+                              </div>
+                              <h4 className="font-semibold text-sm mb-1">
+                                {phaseInfo.title}
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                {phaseInfo.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {selectedOutputPhase > 1 && (
+                      <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <p className="text-sm text-amber-800 font-medium">
+                          Phase {selectedOutputPhase} Selected: Advanced RAG
+                          Architecture
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          This phase includes all previous phase capabilities
+                          plus advanced features for higher accuracy.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -746,12 +926,29 @@ const Dashboard = ({
                           <p className="text-sm text-purple-800 font-medium">
                             {selectedPdfs.length} PDF
                             {selectedPdfs.length > 1 ? "s" : ""} selected for
-                            processing
+                            processing → {selectedPdfs.length} output
+                            {selectedPdfs.length > 1 ? "s" : ""} will be
+                            generated
                           </p>
                           <p className="text-xs text-purple-600 mt-1">
                             Each PDF will be processed sequentially to generate
-                            synthetic data
+                            separate vector databases with synthetic data
                           </p>
+                          {selectedPdfs.length > 1 && (
+                            <div className="mt-2 p-2 bg-white rounded border">
+                              <p className="text-xs text-purple-700 font-medium">
+                                Multi-Output Generation:
+                              </p>
+                              <ul className="text-xs text-purple-600 mt-1 space-y-1">
+                                {selectedPdfs.map((pdf, index) => (
+                                  <li key={index}>
+                                    • Output {index + 1}: {pdf} → Vector DB{" "}
+                                    {index + 1}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -767,37 +964,47 @@ const Dashboard = ({
                     V0 Factory Pipeline Completed Successfully!
                   </AlertTitle>
                   <AlertDescription>
-                    Your high-density Chroma vector database is ready for
-                    expert-level RAG systems. The final output contains:
+                    Your {selectedPdfs.length} high-density Chroma vector
+                    database{selectedPdfs.length > 1 ? "s are" : " is"} ready
+                    for expert-level RAG systems. The final output contains:
                     <div className="mt-3 space-y-2">
                       <div className="bg-white p-3 rounded border">
                         <div className="font-semibold text-sm mb-1">
-                          📊 Vector Database Statistics:
+                          📊 Vector Database Statistics (Per Output):
                         </div>
                         <ul className="text-sm space-y-1">
                           <li>
                             • Real PDF chunks: ~
-                            {Math.floor(Math.random() * 500 + 200)} entries
+                            {Math.floor(Math.random() * 500 + 200)} entries each
                           </li>
                           <li>
                             • Synthetic error patterns: ~
                             {Math.floor(
-                              pipelineStatus.stage2.syntheticExamples * 0.4,
+                              (pipelineStatus.stage2.syntheticExamples * 0.4) /
+                                selectedPdfs.length,
                             )}{" "}
-                            entries
+                            entries each
                           </li>
                           <li>
                             • Synthetic best practices: ~
                             {Math.floor(
-                              pipelineStatus.stage2.syntheticExamples * 0.6,
+                              (pipelineStatus.stage2.syntheticExamples * 0.6) /
+                                selectedPdfs.length,
                             )}{" "}
-                            entries
+                            entries each
                           </li>
                           <li>
                             • Total embeddings: ~
-                            {pipelineStatus.stage2.syntheticExamples +
-                              Math.floor(Math.random() * 500 + 200)}{" "}
-                            vectors
+                            {Math.floor(
+                              (pipelineStatus.stage2.syntheticExamples +
+                                Math.floor(Math.random() * 500 + 200)) /
+                                selectedPdfs.length,
+                            )}{" "}
+                            vectors per database
+                          </li>
+                          <li className="font-medium text-green-600">
+                            • {selectedPdfs.length} separate vector database
+                            {selectedPdfs.length > 1 ? "s" : ""} generated
                           </li>
                         </ul>
                       </div>
@@ -806,13 +1013,36 @@ const Dashboard = ({
                           🎯 Ready for Integration:
                         </div>
                         <ul className="text-sm space-y-1">
-                          <li>• Chroma vector store with Ollama embeddings</li>
+                          <li>
+                            • {selectedPdfs.length} Chroma vector store
+                            {selectedPdfs.length > 1 ? "s" : ""} with Ollama
+                            embeddings
+                          </li>
                           <li>• Metadata-rich entries for precise retrieval</li>
                           <li>
                             • Expert-level synthetic scenarios for fine-tuning
                           </li>
+                          <li>
+                            • Each database specialized for its source document
+                          </li>
                         </ul>
                       </div>
+                      {selectedPdfs.length > 1 && (
+                        <div className="bg-green-50 p-3 rounded border border-green-200 mt-3">
+                          <div className="text-sm font-semibold mb-1 text-green-800">
+                            🎯 Multi-Output Summary:
+                          </div>
+                          <ul className="text-sm space-y-1 text-green-700">
+                            {selectedPdfs.map((pdf, index) => (
+                              <li key={index}>
+                                • Output {index + 1}: {pdf} → Specialized Phase{" "}
+                                {pipelineStatus.stage2.outputPhase} vector
+                                database
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </AlertDescription>
                 </Alert>
@@ -952,11 +1182,22 @@ const Dashboard = ({
                 {selectedPdfs.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>V0 Factory Configuration</CardTitle>
+                      <CardTitle>
+                        Configure Phase {selectedOutputPhase} Parameters
+                      </CardTitle>
                       <CardDescription>
-                        Configure the synthetic generation parameters for
+                        Configure Phase {selectedOutputPhase} parameters for
                         transforming {selectedPdfs.length} PDF
-                        {selectedPdfs.length > 1 ? "s" : ""} into a high-density
+                        {selectedPdfs.length > 1 ? "s" : ""} into a{" "}
+                        {selectedOutputPhase === 1
+                          ? "basic"
+                          : selectedOutputPhase === 2
+                            ? "hierarchical"
+                            : selectedOutputPhase === 3
+                              ? "graph-enhanced"
+                              : selectedOutputPhase === 4
+                                ? "agentic"
+                                : "continuously-evaluated"}{" "}
                         vector database
                       </CardDescription>
                     </CardHeader>
@@ -1041,17 +1282,24 @@ const Dashboard = ({
                       <div className="space-y-3">
                         <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
                           <p className="text-sm text-yellow-800">
-                            <strong>Factory Process:</strong> Extract text from
-                            {selectedPdfs.length} seed PDF
-                            {selectedPdfs.length > 1 ? "s" : ""} → Generate
-                            thousands of synthetic error patterns and best
-                            practices → Combine real + synthetic data → Create
-                            GPU-accelerated Ollama embeddings → Output final
-                            Chroma vector database ready for RAG systems.
+                            <strong>
+                              Phase {selectedOutputPhase} Process:
+                            </strong>{" "}
+                            {selectedOutputPhase === 1
+                              ? "Extract text from seed PDFs → Generate synthetic data → Create basic embeddings → Output standard vector database"
+                              : selectedOutputPhase === 2
+                                ? "Parse configs into structured chunks → Build hierarchical index → Implement memory filters → Achieve 80-88% accuracy"
+                                : selectedOutputPhase === 3
+                                  ? "Build knowledge graph → Map relationships → Implement graph-aware retrieval → Target low 90s accuracy"
+                                  : selectedOutputPhase === 4
+                                    ? "Create agentic framework → Build tool execution → Implement validation loops → Push upper 90s accuracy"
+                                    : "Setup continuous evaluation → Build gold standards → Implement monitoring → Maintain ≥95% accuracy"}
                           </p>
                         </div>
                         <Button
-                          onClick={() => startStage2(selectedPdfs)}
+                          onClick={() =>
+                            startStage2(selectedPdfs, selectedOutputPhase)
+                          }
                           disabled={pipelineStatus.stage2.status === "running"}
                           className="w-full flex items-center gap-2"
                         >
@@ -1061,8 +1309,8 @@ const Dashboard = ({
                             <Factory className="h-4 w-4" />
                           )}
                           {pipelineStatus.stage2.status === "running"
-                            ? "Factory Processing..."
-                            : "Start Factory Transformation"}
+                            ? `Phase ${selectedOutputPhase} Processing ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}...`
+                            : `Start Phase ${selectedOutputPhase} Transformation (${selectedPdfs.length} output${selectedPdfs.length > 1 ? "s" : ""})`}
                         </Button>
                       </div>
                     </CardContent>
@@ -1074,9 +1322,19 @@ const Dashboard = ({
                     <CardHeader>
                       <CardTitle>Factory Processing Progress</CardTitle>
                       <CardDescription>
-                        GPU-accelerated transformation of {selectedPdfs.length}{" "}
-                        seed PDF{selectedPdfs.length > 1 ? "s" : ""} into
-                        high-density vector database
+                        Phase {pipelineStatus.stage2.outputPhase} transformation
+                        of {selectedPdfs.length} seed PDF
+                        {selectedPdfs.length > 1 ? "s" : ""} into
+                        {pipelineStatus.stage2.outputPhase === 1
+                          ? "basic"
+                          : pipelineStatus.stage2.outputPhase === 2
+                            ? "hierarchical"
+                            : pipelineStatus.stage2.outputPhase === 3
+                              ? "graph-enhanced"
+                              : pipelineStatus.stage2.outputPhase === 4
+                                ? "agentic"
+                                : "continuously-evaluated"}{" "}
+                        vector database
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1112,34 +1370,91 @@ const Dashboard = ({
                 {pipelineStatus.stage2.status === "completed" && (
                   <Alert>
                     <CheckCircle className="h-4 w-4" />
-                    <AlertTitle>Factory Transformation Complete!</AlertTitle>
+                    <AlertTitle>
+                      Phase {pipelineStatus.stage2.outputPhase} Transformation
+                      Complete!
+                    </AlertTitle>
                     <AlertDescription>
                       <div className="space-y-2">
                         <p>
                           Your {selectedPdfs.length} seed PDF
                           {selectedPdfs.length > 1 ? "s have" : " has"} been
-                          transformed into a high-density vector database with{" "}
+                          transformed into {selectedPdfs.length} separate Phase{" "}
+                          {pipelineStatus.stage2.outputPhase} vector database
+                          {selectedPdfs.length > 1 ? "s" : ""}
+                          with{" "}
                           {pipelineStatus.stage2.syntheticExamples.toLocaleString()}{" "}
-                          GPU-generated synthetic entries plus original PDF
-                          chunks.
+                          total{" "}
+                          {pipelineStatus.stage2.outputPhase === 1
+                            ? "synthetic entries"
+                            : pipelineStatus.stage2.outputPhase === 2
+                              ? "structured chunks with memory filters"
+                              : pipelineStatus.stage2.outputPhase === 3
+                                ? "graph-enhanced relationships"
+                                : pipelineStatus.stage2.outputPhase === 4
+                                  ? "agentic validation entries"
+                                  : "continuously-evaluated entries"}{" "}
+                          plus original PDF chunks.
                         </p>
                         <div className="bg-white p-3 rounded border mt-3">
                           <div className="text-sm font-semibold mb-1">
-                            Final Output Ready:
+                            Phase {pipelineStatus.stage2.outputPhase} Output
+                            {selectedPdfs.length > 1 ? "s" : ""}
+                            Ready:
                           </div>
                           <ul className="text-sm space-y-1">
                             <li>
-                              ✅ Chroma vector database with Ollama embeddings
+                              ✅ {selectedPdfs.length}{" "}
+                              {pipelineStatus.stage2.outputPhase === 1
+                                ? "Basic Chroma vector database"
+                                : pipelineStatus.stage2.outputPhase === 2
+                                  ? "Hierarchical index with memory filters"
+                                  : pipelineStatus.stage2.outputPhase === 3
+                                    ? "Graph RAG with relationship mapping"
+                                    : pipelineStatus.stage2.outputPhase === 4
+                                      ? "Agentic loop with tool execution"
+                                      : "Continuous evaluation harness"}
+                              {selectedPdfs.length > 1 ? "s" : ""}
                             </li>
                             <li>
-                              ✅ Real PDF chunks with metadata and page
-                              references
+                              ✅{" "}
+                              {pipelineStatus.stage2.outputPhase === 1
+                                ? "Real PDF chunks with metadata"
+                                : pipelineStatus.stage2.outputPhase === 2
+                                  ? "Structured config chunks (80-88% accuracy)"
+                                  : pipelineStatus.stage2.outputPhase === 3
+                                    ? "Graph-aware retrieval (low 90s accuracy)"
+                                    : pipelineStatus.stage2.outputPhase === 4
+                                      ? "Validated evidence gathering (upper 90s)"
+                                      : "Gold standard monitoring (≥95% accuracy)"}{" "}
+                              per database
                             </li>
                             <li>
-                              ✅ Synthetic error patterns and best practices
+                              ✅{" "}
+                              {pipelineStatus.stage2.outputPhase === 1
+                                ? "Synthetic error patterns and best practices"
+                                : pipelineStatus.stage2.outputPhase === 2
+                                  ? "Device context filtering"
+                                  : pipelineStatus.stage2.outputPhase === 3
+                                    ? "Dependency and version awareness"
+                                    : pipelineStatus.stage2.outputPhase === 4
+                                      ? "Iterative hypothesis validation"
+                                      : "Regression control and feedback"}{" "}
+                              for each output
                             </li>
                             <li>
-                              ✅ Ready for expert-level RAG system integration
+                              ✅ {selectedPdfs.length} database
+                              {selectedPdfs.length > 1 ? "s" : ""} ready for{" "}
+                              {pipelineStatus.stage2.outputPhase === 1
+                                ? "basic"
+                                : pipelineStatus.stage2.outputPhase === 2
+                                  ? "precision-focused"
+                                  : pipelineStatus.stage2.outputPhase === 3
+                                    ? "nuanced dependency-aware"
+                                    : pipelineStatus.stage2.outputPhase === 4
+                                      ? "expert-level validated"
+                                      : "production-grade maintained"}{" "}
+                              RAG system integration
                             </li>
                           </ul>
                         </div>
