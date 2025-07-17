@@ -35,6 +35,10 @@ import {
   Trash2,
   Wifi,
   WifiOff,
+  Cpu,
+  MemoryStick,
+  Zap,
+  Monitor,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -73,11 +77,16 @@ const SystemConfiguration = ({
     initialConfig.llmProvider || "groq",
   );
   const [groqApiKeys, setGroqApiKeys] = useState(
-    initialConfig.groqApiKeys || [
-      { id: 1, name: "Primary Key", key: "gsk_..." },
-      { id: 2, name: "Backup Key", key: "gsk_..." },
-    ],
+    initialConfig.groqApiKeys || [],
   );
+
+  // Load saved API keys on component mount
+  React.useEffect(() => {
+    const savedKeys = groqClient.getSavedApiKeys();
+    if (savedKeys.length > 0) {
+      setGroqApiKeys(savedKeys);
+    }
+  }, []);
   const [ollamaConfig, setOllamaConfig] = useState(
     initialConfig.ollamaConfig || {
       endpoint: "http://localhost:11434",
@@ -93,6 +102,12 @@ const SystemConfiguration = ({
   const [testResults, setTestResults] = useState([]);
   const [testingInProgress, setTestingInProgress] = useState(false);
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
+  const [systemResources, setSystemResources] = useState({
+    cpu: { usage: 45, temperature: 62 },
+    ram: { used: 6.2, total: 16, percentage: 38.75 },
+    gpu: { usage: 78, temperature: 71, model: "NVIDIA RTX 4080" },
+    vram: { used: 8.5, total: 12, percentage: 70.8 },
+  });
 
   const testQuestions = [
     "What is the capital city of France?",
@@ -199,6 +214,65 @@ const SystemConfiguration = ({
       "I'm processing your question through the local Ollama instance."
     );
   };
+
+  // Simulate real-time resource monitoring
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setSystemResources((prev) => ({
+        cpu: {
+          usage: Math.max(
+            10,
+            Math.min(95, prev.cpu.usage + (Math.random() - 0.5) * 10),
+          ),
+          temperature: Math.max(
+            35,
+            Math.min(85, prev.cpu.temperature + (Math.random() - 0.5) * 5),
+          ),
+        },
+        ram: {
+          ...prev.ram,
+          used: Math.max(
+            2,
+            Math.min(
+              prev.ram.total - 1,
+              prev.ram.used + (Math.random() - 0.5) * 0.5,
+            ),
+          ),
+          percentage: Math.max(
+            12.5,
+            Math.min(93.75, prev.ram.percentage + (Math.random() - 0.5) * 3),
+          ),
+        },
+        gpu: {
+          ...prev.gpu,
+          usage: Math.max(
+            5,
+            Math.min(100, prev.gpu.usage + (Math.random() - 0.5) * 15),
+          ),
+          temperature: Math.max(
+            40,
+            Math.min(90, prev.gpu.temperature + (Math.random() - 0.5) * 8),
+          ),
+        },
+        vram: {
+          ...prev.vram,
+          used: Math.max(
+            1,
+            Math.min(
+              prev.vram.total - 0.5,
+              prev.vram.used + (Math.random() - 0.5) * 0.8,
+            ),
+          ),
+          percentage: Math.max(
+            8.3,
+            Math.min(95.8, prev.vram.percentage + (Math.random() - 0.5) * 5),
+          ),
+        },
+      }));
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="w-full h-full p-6 bg-background">
@@ -515,8 +589,141 @@ const SystemConfiguration = ({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-6">
+                {/* CPU and RAM Monitoring */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="h-5 w-5 text-blue-500" />
+                      <span className="font-medium">CPU Usage</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Usage
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(systemResources.cpu.usage)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={systemResources.cpu.usage}
+                        className={`h-2 ${systemResources.cpu.usage > 80 ? "bg-red-100" : systemResources.cpu.usage > 60 ? "bg-yellow-100" : "bg-green-100"}`}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Temperature
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(systemResources.cpu.temperature)}°C
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <MemoryStick className="h-5 w-5 text-green-500" />
+                      <span className="font-medium">RAM Usage</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Memory
+                        </span>
+                        <span className="text-sm font-medium">
+                          {systemResources.ram.used.toFixed(1)} GB /{" "}
+                          {systemResources.ram.total} GB
+                        </span>
+                      </div>
+                      <Progress
+                        value={systemResources.ram.percentage}
+                        className={`h-2 ${systemResources.ram.percentage > 85 ? "bg-red-100" : systemResources.ram.percentage > 70 ? "bg-yellow-100" : "bg-green-100"}`}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Usage
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(systemResources.ram.percentage)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* GPU and VRAM Monitoring */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-purple-500" />
+                      <span className="font-medium">GPU Usage</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Model
+                        </span>
+                        <span className="text-xs font-medium text-purple-600">
+                          {systemResources.gpu.model}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Usage
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(systemResources.gpu.usage)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={systemResources.gpu.usage}
+                        className={`h-2 ${systemResources.gpu.usage > 90 ? "bg-red-100" : systemResources.gpu.usage > 75 ? "bg-yellow-100" : "bg-green-100"}`}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Temperature
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(systemResources.gpu.temperature)}°C
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-5 w-5 text-orange-500" />
+                      <span className="font-medium">VRAM Usage</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Memory
+                        </span>
+                        <span className="text-sm font-medium">
+                          {systemResources.vram.used.toFixed(1)} GB /{" "}
+                          {systemResources.vram.total} GB
+                        </span>
+                      </div>
+                      <Progress
+                        value={systemResources.vram.percentage}
+                        className={`h-2 ${systemResources.vram.percentage > 90 ? "bg-red-100" : systemResources.vram.percentage > 75 ? "bg-yellow-100" : "bg-green-100"}`}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Usage
+                        </span>
+                        <span className="text-sm font-medium">
+                          {Math.round(systemResources.vram.percentage)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Storage and System Status */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>Disk Usage</Label>
@@ -528,12 +735,30 @@ const SystemConfiguration = ({
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Memory Usage</Label>
-                      <span className="text-sm font-medium">1.8 GB / 8 GB</span>
+                      <Label>System Load</Label>
+                      <span className="text-sm font-medium">
+                        {(
+                          (systemResources.cpu.usage +
+                            systemResources.ram.percentage +
+                            systemResources.gpu.usage) /
+                          3
+                        ).toFixed(1)}
+                        %
+                      </span>
                     </div>
-                    <Progress value={22.5} className="h-2" />
+                    <Progress
+                      value={
+                        (systemResources.cpu.usage +
+                          systemResources.ram.percentage +
+                          systemResources.gpu.usage) /
+                        3
+                      }
+                      className="h-2"
+                    />
                   </div>
                 </div>
+
+                {/* Status Indicators */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-2">
                     <Server className="h-4 w-4 text-muted-foreground" />
@@ -551,6 +776,31 @@ const SystemConfiguration = ({
                     <span className="text-sm font-medium">128</span>
                   </div>
                 </div>
+
+                {/* Resource Alerts */}
+                {(systemResources.cpu.usage > 85 ||
+                  systemResources.ram.percentage > 90 ||
+                  systemResources.gpu.usage > 95 ||
+                  systemResources.vram.percentage > 95) && (
+                  <div className="mt-4">
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>High Resource Usage Detected</AlertTitle>
+                      <AlertDescription>
+                        {systemResources.cpu.usage > 85 &&
+                          "CPU usage is high. "}
+                        {systemResources.ram.percentage > 90 &&
+                          "RAM usage is critical. "}
+                        {systemResources.gpu.usage > 95 &&
+                          "GPU usage is at maximum. "}
+                        {systemResources.vram.percentage > 95 &&
+                          "VRAM usage is critical. "}
+                        Consider closing unnecessary applications or upgrading
+                        hardware.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -577,6 +827,14 @@ const SystemConfiguration = ({
                     onChange={(e) => {
                       if (e.target.value.trim()) {
                         groqClient.setApiKey(e.target.value.trim());
+                        // Save the key automatically
+                        groqClient.saveApiKey(
+                          "Quick Setup Key",
+                          e.target.value.trim(),
+                          true,
+                        );
+                        // Refresh the keys list
+                        setGroqApiKeys(groqClient.getSavedApiKeys());
                       }
                     }}
                   />
@@ -747,19 +1005,44 @@ const SystemConfiguration = ({
                             <span className="font-medium text-sm">
                               {apiKey.name}
                             </span>
-                            <Badge
-                              variant="outline"
-                              className="bg-green-50 text-green-700 border-green-200"
-                            >
-                              Active
-                            </Badge>
+                            {apiKey.active && (
+                              <Badge
+                                variant="outline"
+                                className="bg-green-50 text-green-700 border-green-200"
+                              >
+                                Active
+                              </Badge>
+                            )}
                           </div>
                           <span className="text-xs text-muted-foreground font-mono">
                             {apiKey.key.substring(0, 8)}...
                             {apiKey.key.slice(-4)}
                           </span>
+                          {apiKey.createdAt && (
+                            <span className="text-xs text-muted-foreground block">
+                              Added:{" "}
+                              {new Date(apiKey.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
+                          {!apiKey.active && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                groqClient.saveApiKey(
+                                  apiKey.name,
+                                  apiKey.key,
+                                  true,
+                                );
+                                setGroqApiKeys(groqClient.getSavedApiKeys());
+                              }}
+                              title="Set as active"
+                            >
+                              <Bot className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
@@ -775,9 +1058,8 @@ const SystemConfiguration = ({
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              setGroqApiKeys(
-                                groqApiKeys.filter((k) => k.id !== apiKey.id),
-                              );
+                              groqClient.deleteSavedApiKey(apiKey.id);
+                              setGroqApiKeys(groqClient.getSavedApiKeys());
                             }}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -813,7 +1095,7 @@ const SystemConfiguration = ({
                             value={newKeyValue}
                             onChange={(e) => {
                               setNewKeyValue(e.target.value);
-                              // Update the Groq client with the new key
+                              // Update the Groq client with the new key for testing
                               if (e.target.value.trim()) {
                                 groqClient.setApiKey(e.target.value.trim());
                               }
@@ -825,27 +1107,28 @@ const SystemConfiguration = ({
                             size="sm"
                             onClick={() => {
                               if (editingKey === "new") {
-                                const newKey = {
-                                  id:
-                                    Math.max(...groqApiKeys.map((k) => k.id)) +
-                                    1,
-                                  name: newKeyName,
-                                  key: newKeyValue,
-                                };
-                                setGroqApiKeys([...groqApiKeys, newKey]);
-                              } else {
-                                setGroqApiKeys(
-                                  groqApiKeys.map((k) =>
-                                    k.id === editingKey
-                                      ? {
-                                          ...k,
-                                          name: newKeyName,
-                                          key: newKeyValue,
-                                        }
-                                      : k,
-                                  ),
+                                // Save new key
+                                groqClient.saveApiKey(
+                                  newKeyName,
+                                  newKeyValue,
+                                  true,
                                 );
+                              } else {
+                                // Update existing key
+                                const existingKey = groqApiKeys.find(
+                                  (k) => k.id === editingKey,
+                                );
+                                if (existingKey) {
+                                  groqClient.deleteSavedApiKey(editingKey);
+                                  groqClient.saveApiKey(
+                                    newKeyName,
+                                    newKeyValue,
+                                    existingKey.active,
+                                  );
+                                }
                               }
+                              // Refresh the keys list
+                              setGroqApiKeys(groqClient.getSavedApiKeys());
                               setEditingKey(null);
                               setNewKeyName("");
                               setNewKeyValue("");

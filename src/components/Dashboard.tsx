@@ -72,7 +72,7 @@ const Dashboard = ({
       currentStep: "Waiting for Stage 1 completion",
     },
   });
-  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
+  const [selectedPdfs, setSelectedPdfs] = useState<string[]>([]);
   const [discoveredPdfs, setDiscoveredPdfs] = useState<string[]>([]);
 
   // Map database types to display names
@@ -133,8 +133,8 @@ const Dashboard = ({
     }
   };
 
-  const startStage2 = async (pdfFile: string) => {
-    if (!pdfFile) return;
+  const startStage2 = async (pdfFiles: string[]) => {
+    if (!pdfFiles || pdfFiles.length === 0) return;
 
     setPipelineStatus((prev) => ({
       ...prev,
@@ -185,9 +185,11 @@ const Dashboard = ({
       }));
     }
 
-    // Mark the processed document
+    // Mark the processed documents
     if (typeof webSearchService.markDocumentAsProcessed === "function") {
-      webSearchService.markDocumentAsProcessed(pdfFile);
+      pdfFiles.forEach((pdfFile) => {
+        webSearchService.markDocumentAsProcessed(pdfFile);
+      });
     }
   };
 
@@ -206,7 +208,7 @@ const Dashboard = ({
         currentStep: "Waiting for Stage 1 completion",
       },
     });
-    setSelectedPdf(null);
+    setSelectedPdfs([]);
     setDiscoveredPdfs([]);
   };
 
@@ -498,10 +500,10 @@ const Dashboard = ({
                       <div className="grid grid-cols-6 gap-2 items-center">
                         <div className="flex flex-col items-center space-y-1">
                           <div
-                            className={`p-2 rounded-full ${selectedPdf ? "bg-purple-100" : "bg-gray-100"}`}
+                            className={`p-2 rounded-full ${selectedPdfs.length > 0 ? "bg-purple-100" : "bg-gray-100"}`}
                           >
                             <FileText
-                              className={`h-4 w-4 ${selectedPdf ? "text-purple-600" : "text-gray-400"}`}
+                              className={`h-4 w-4 ${selectedPdfs.length > 0 ? "text-purple-600" : "text-gray-400"}`}
                             />
                           </div>
                           <span className="text-xs text-center">Seed PDF</span>
@@ -626,10 +628,12 @@ const Dashboard = ({
                     </Button>
 
                     <Button
-                      onClick={() => selectedPdf && startStage2(selectedPdf)}
+                      onClick={() =>
+                        selectedPdfs.length > 0 && startStage2(selectedPdfs)
+                      }
                       disabled={
                         pipelineStatus.stage1.status !== "completed" ||
-                        !selectedPdf ||
+                        selectedPdfs.length === 0 ||
                         pipelineStatus.stage2.status === "running"
                       }
                       variant="secondary"
@@ -664,30 +668,56 @@ const Dashboard = ({
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      Select Seed PDF for V0 Factory Processing
+                      Select Seed PDFs for V0 Factory Processing
                     </CardTitle>
                     <CardDescription>
-                      Choose a single PDF from Stage 1 to transform into a
-                      high-density vector database. This "seed" document will be
-                      combined with thousands of synthetic entries.
+                      Choose one or more PDFs from Stage 1 to transform into a
+                      high-density vector database. These "seed" documents will
+                      be combined with thousands of synthetic entries.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="text-sm text-muted-foreground mb-3">
-                        <strong>Pipeline Philosophy:</strong> One PDF →
-                        Thousands of entries (Real chunks + Synthetic data)
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Pipeline Philosophy:</strong> Multiple PDFs →
+                          Thousands of entries (Real chunks + Synthetic data)
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedPdfs(discoveredPdfs)}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedPdfs([])}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {discoveredPdfs.map((pdf, index) => (
                           <div
                             key={index}
                             className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                              selectedPdf === pdf
+                              selectedPdfs.includes(pdf)
                                 ? "border-purple-500 bg-purple-50"
                                 : "border-gray-200 hover:border-gray-300"
                             }`}
-                            onClick={() => setSelectedPdf(pdf)}
+                            onClick={() => {
+                              if (selectedPdfs.includes(pdf)) {
+                                setSelectedPdfs(
+                                  selectedPdfs.filter((p) => p !== pdf),
+                                );
+                              } else {
+                                setSelectedPdfs([...selectedPdfs, pdf]);
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-3">
                               <FileText className="h-5 w-5 text-red-500" />
@@ -699,11 +729,11 @@ const Dashboard = ({
                                   Ready for V0 Factory processing
                                 </span>
                               </div>
-                              {selectedPdf === pdf && (
+                              {selectedPdfs.includes(pdf) && (
                                 <div className="flex items-center gap-1">
                                   <CheckCircle className="h-4 w-4 text-purple-500" />
                                   <span className="text-xs text-purple-600 font-medium">
-                                    Selected Seed
+                                    Selected
                                   </span>
                                 </div>
                               )}
@@ -711,6 +741,19 @@ const Dashboard = ({
                           </div>
                         ))}
                       </div>
+                      {selectedPdfs.length > 0 && (
+                        <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <p className="text-sm text-purple-800 font-medium">
+                            {selectedPdfs.length} PDF
+                            {selectedPdfs.length > 1 ? "s" : ""} selected for
+                            processing
+                          </p>
+                          <p className="text-xs text-purple-600 mt-1">
+                            Each PDF will be processed sequentially to generate
+                            synthetic data
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -838,22 +881,52 @@ const Dashboard = ({
                     <CardHeader>
                       <CardTitle>Available Seed PDFs from Stage 1</CardTitle>
                       <CardDescription>
-                        Select a single PDF to transform using the V0 Factory
-                        workflow. This document will be the foundation for
-                        generating thousands of synthetic entries.
+                        Select one or more PDFs to transform using the V0
+                        Factory workflow. These documents will be the foundation
+                        for generating thousands of synthetic entries.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-sm text-muted-foreground">
+                            {selectedPdfs.length} of {discoveredPdfs.length}{" "}
+                            PDFs selected
+                          </span>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedPdfs(discoveredPdfs)}
+                            >
+                              Select All
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedPdfs([])}
+                            >
+                              Clear All
+                            </Button>
+                          </div>
+                        </div>
                         {discoveredPdfs.map((pdf, index) => (
                           <div
                             key={index}
                             className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                              selectedPdf === pdf
+                              selectedPdfs.includes(pdf)
                                 ? "border-blue-500 bg-blue-50"
                                 : "border-gray-200 hover:border-gray-300"
                             }`}
-                            onClick={() => setSelectedPdf(pdf)}
+                            onClick={() => {
+                              if (selectedPdfs.includes(pdf)) {
+                                setSelectedPdfs(
+                                  selectedPdfs.filter((p) => p !== pdf),
+                                );
+                              } else {
+                                setSelectedPdfs([...selectedPdfs, pdf]);
+                              }
+                            }}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -865,7 +938,7 @@ const Dashboard = ({
                                   </p>
                                 </div>
                               </div>
-                              {selectedPdf === pdf && (
+                              {selectedPdfs.includes(pdf) && (
                                 <CheckCircle className="h-5 w-5 text-blue-500" />
                               )}
                             </div>
@@ -876,14 +949,15 @@ const Dashboard = ({
                   </Card>
                 )}
 
-                {selectedPdf && (
+                {selectedPdfs.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle>V0 Factory Configuration</CardTitle>
                       <CardDescription>
                         Configure the synthetic generation parameters for
-                        transforming {selectedPdf} into a high-density vector
-                        database
+                        transforming {selectedPdfs.length} PDF
+                        {selectedPdfs.length > 1 ? "s" : ""} into a high-density
+                        vector database
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -968,15 +1042,16 @@ const Dashboard = ({
                         <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
                           <p className="text-sm text-yellow-800">
                             <strong>Factory Process:</strong> Extract text from
-                            seed PDF → Generate thousands of synthetic error
-                            patterns and best practices → Combine real +
-                            synthetic data → Create GPU-accelerated Ollama
-                            embeddings → Output final Chroma vector database
-                            ready for RAG systems.
+                            {selectedPdfs.length} seed PDF
+                            {selectedPdfs.length > 1 ? "s" : ""} → Generate
+                            thousands of synthetic error patterns and best
+                            practices → Combine real + synthetic data → Create
+                            GPU-accelerated Ollama embeddings → Output final
+                            Chroma vector database ready for RAG systems.
                           </p>
                         </div>
                         <Button
-                          onClick={() => startStage2(selectedPdf)}
+                          onClick={() => startStage2(selectedPdfs)}
                           disabled={pipelineStatus.stage2.status === "running"}
                           className="w-full flex items-center gap-2"
                         >
@@ -999,7 +1074,8 @@ const Dashboard = ({
                     <CardHeader>
                       <CardTitle>Factory Processing Progress</CardTitle>
                       <CardDescription>
-                        GPU-accelerated transformation of seed PDF into
+                        GPU-accelerated transformation of {selectedPdfs.length}{" "}
+                        seed PDF{selectedPdfs.length > 1 ? "s" : ""} into
                         high-density vector database
                       </CardDescription>
                     </CardHeader>
@@ -1040,8 +1116,9 @@ const Dashboard = ({
                     <AlertDescription>
                       <div className="space-y-2">
                         <p>
-                          Your seed PDF has been transformed into a high-density
-                          vector database with{" "}
+                          Your {selectedPdfs.length} seed PDF
+                          {selectedPdfs.length > 1 ? "s have" : " has"} been
+                          transformed into a high-density vector database with{" "}
                           {pipelineStatus.stage2.syntheticExamples.toLocaleString()}{" "}
                           GPU-generated synthetic entries plus original PDF
                           chunks.
