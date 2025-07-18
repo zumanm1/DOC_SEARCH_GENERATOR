@@ -18,6 +18,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 import { groqClient } from "@/lib/groq-client";
 import { webSearchService } from "@/lib/web-search";
