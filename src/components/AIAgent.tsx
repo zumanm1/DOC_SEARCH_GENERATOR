@@ -81,9 +81,13 @@ const AIAgent: React.FC<AIAgentProps> = ({
   const [results, setResults] = useState<any[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { sendMessage, onMessage, isConnected } = useWebSocket(
-    `ai-agent-${Date.now()}`,
-  );
+  const {
+    sendMessage,
+    onMessage,
+    isConnected,
+    connect,
+    error: wsError,
+  } = useWebSocket(`ai-agent-${Date.now()}`);
 
   const updateStep = (stepId: string, updates: Partial<AgentStep>) => {
     setSteps((prev) =>
@@ -98,7 +102,9 @@ const AIAgent: React.FC<AIAgentProps> = ({
     }
 
     if (!isConnected) {
-      setError("Not connected to backend. Please try again later.");
+      setError(
+        "Backend server not available. Please ensure the Python backend is running on localhost:8000",
+      );
       return;
     }
 
@@ -254,11 +260,43 @@ const AIAgent: React.FC<AIAgentProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && (
+          {(error || wsError) && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{error || wsError}</AlertDescription>
+            </Alert>
+          )}
+
+          {!isConnected && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Backend Connection Required</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <div>
+                  The Python backend server is not running or not accessible.
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  To use the AI Agent, please:
+                  <br />
+                  1. Navigate to the backend/ directory
+                  <br />
+                  2. Install dependencies: pip install -r requirements.txt
+                  <br />
+                  3. Start the server: python main.py
+                  <br />
+                  4. Ensure it's running on localhost:8000
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={connect}
+                  className="mt-2"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry Connection
+                </Button>
+              </AlertDescription>
             </Alert>
           )}
 
@@ -306,7 +344,7 @@ const AIAgent: React.FC<AIAgentProps> = ({
           <div className="flex gap-2">
             <Button
               onClick={runAgent}
-              disabled={isRunning || !query.trim()}
+              disabled={isRunning || !query.trim() || !isConnected}
               className="flex items-center gap-2"
             >
               {isRunning ? (
@@ -314,7 +352,11 @@ const AIAgent: React.FC<AIAgentProps> = ({
               ) : (
                 <Search className="h-4 w-4" />
               )}
-              {isRunning ? "Running..." : "Start AI Agent"}
+              {isRunning
+                ? "Running..."
+                : !isConnected
+                  ? "Backend Required"
+                  : "Start AI Agent"}
             </Button>
 
             {results.length > 0 && (
