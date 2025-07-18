@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -30,6 +30,7 @@ import {
 import DocumentDiscovery from "./DocumentDiscovery";
 import DocumentSearch from "./DocumentSearch";
 import SystemConfiguration from "./SystemConfiguration";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 interface DashboardProps {
   isOnline?: boolean;
@@ -138,6 +139,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     1 | 2 | 3 | 4 | 5
   >(1);
 
+  // WebSocket connection for backend communication
+  const { isConnected, sendMessage, onMessage } = useWebSocket("dashboard");
+
   // Map database types to display names
   const databaseLabels = {
     sqlite: "SQLite",
@@ -152,6 +156,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         ...prev.stage1,
         status: "running",
         progress: 0,
+        documentsFound: 0,
         currentStep: "Initializing document discovery...",
       },
     }));
@@ -786,10 +791,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <ArrowRight className="h-3 w-3 text-muted-foreground mx-auto" />
                         <div className="flex flex-col items-center space-y-1">
                           <div
-                            className={`p-2 rounded-full ${pipelineStatus.stage2.progress > 60 ? "bg-purple-100" : "bg-gray-100"}`}
+                            className={`p-2 rounded-full ${pipelineStatus.stage2.status === "completed" ? "bg-green-100" : "bg-gray-100"}`}
                           >
                             <Zap
-                              className={`h-4 w-4 ${pipelineStatus.stage2.progress > 60 ? "text-purple-600" : "text-gray-400"}`}
+                              className={`h-4 w-4 ${pipelineStatus.stage2.status === "completed" ? "text-green-600" : "text-gray-400"}`}
                             />
                           </div>
                           <span className="text-xs text-center">
