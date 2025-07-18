@@ -111,11 +111,11 @@ OLLAMA_MODEL=llama2
 
 # Server Configuration
 HOST=0.0.0.0
-PORT=8000
+PORT=8007
 DEBUG=true
 
 # CORS Configuration
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:5177,http://localhost:3000
 
 # Storage Configuration
 MAX_STORAGE_GB=10
@@ -158,7 +158,7 @@ POSTGRES_URL=postgresql://username:password@localhost/cisco_docs
 python main.py
 
 # With auto-reload
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8007
 
 # With debug logging
 DEBUG=true python main.py
@@ -170,13 +170,13 @@ DEBUG=true python main.py
 pip install gunicorn
 
 # Run with Gunicorn
-gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8007
 
 # With custom configuration
 gunicorn main:app -c gunicorn.conf.py
 ```
 
-The server will start on `http://localhost:8000`
+The server will start on `http://localhost:8007`
 
 ## 📡 API Endpoints
 
@@ -194,7 +194,7 @@ The server will start on `http://localhost:8000`
 
 ### WebSocket Endpoint
 
-**Connection**: `ws://localhost:8000/ws/{client_id}`
+**Connection**: `ws://localhost:8007/ws/{client_id}`
 
 #### Client to Server Messages
 
@@ -581,15 +581,15 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 8007
 
-CMD ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8007"]
 ```
 
 ```bash
 # Build and run
 docker build -t cisco-rag-backend .
-docker run -p 8000:8000 -e GROQ_API_KEY=your_key cisco-rag-backend
+docker run -p 8007:8007 -e GROQ_API_KEY=your_key cisco-rag-backend
 ```
 
 ### Environment Configuration
@@ -598,7 +598,7 @@ docker run -p 8000:8000 -e GROQ_API_KEY=your_key cisco-rag-backend
 # Production .env
 DEBUG=false
 HOST=0.0.0.0
-PORT=8000
+PORT=8007
 
 # Production database
 DATABASE_URL=postgresql://user:password@prod-db:5432/cisco_docs
@@ -694,7 +694,7 @@ For backend-specific issues:
 
 ### Common Issues
 
-- **Port 8000 in use**: Change PORT in `.env` or kill existing process
+- **Port 8007 in use**: Change PORT in `.env` or kill existing process
 - **Module not found**: Ensure virtual environment is activated
 - **Database connection failed**: Check database configuration
 - **API key invalid**: Verify API keys in `.env` file
@@ -702,3 +702,5 @@ For backend-specific issues:
 ---
 
 **Backend Server Status**: ✅ Ready for Production
+
+</initial_code>

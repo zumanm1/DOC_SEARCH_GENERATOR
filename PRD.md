@@ -413,8 +413,8 @@ Deliver a seamless, AI-enhanced documentation experience that reduces time-to-re
 ### 10.1 Deployment Architecture
 
 #### Development Environment
-- **Frontend**: Vite dev server (port 5173)
-- **Backend**: FastAPI dev server (port 8000)
+- **Frontend**: Vite dev server (port 5177)
+- **Backend**: FastAPI dev server (port 8007)
 - **Database**: SQLite file-based storage
 - **AI Services**: Mock services or local Ollama
 

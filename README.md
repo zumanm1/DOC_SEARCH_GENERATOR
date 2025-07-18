@@ -165,9 +165,9 @@ backend/
    ```
 
 5. **Access the Application**
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
+   - Frontend: http://localhost:5177
+   - Backend API: http://localhost:8007
+   - API Documentation: http://localhost:8007/docs
 
 ### Detailed Installation
 
@@ -214,7 +214,7 @@ backend/
    python main.py
    ```
    
-   The backend server will start on `http://localhost:8000`
+   The backend server will start on `http://localhost:8007`
 
 #### Frontend Installation
 
@@ -241,7 +241,7 @@ backend/
    # pnpm dev
    ```
    
-   The frontend will start on `http://localhost:5173`
+   The frontend will start on `http://localhost:5177`
 
 ## 🔧 Configuration
 
@@ -265,11 +265,11 @@ OLLAMA_MODEL=llama2
 
 # Server Configuration
 HOST=0.0.0.0
-PORT=8000
+PORT=8007
 DEBUG=true
 
 # CORS Configuration
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:5177,http://localhost:3000
 
 # Storage Configuration
 MAX_STORAGE_GB=10
@@ -284,8 +284,8 @@ The frontend automatically detects the backend server. No additional configurati
 
 ### Getting Started
 
-1. **Start Both Servers**: Ensure both backend (port 8000) and frontend (port 5173) are running
-2. **Open Browser**: Navigate to http://localhost:5173
+1. **Start Both Servers**: Ensure both backend (port 8007) and frontend (port 5177) are running
+2. **Open Browser**: Navigate to http://localhost:5177
 3. **Dashboard Overview**: The main dashboard provides access to all features
 
 ### Core Features
@@ -369,7 +369,7 @@ Real-time updates are provided through WebSocket connections:
 
 ### WebSocket Endpoint
 
-**Connection**: `ws://localhost:8000/ws/{client_id}`
+**Connection**: `ws://localhost:8007/ws/{client_id}`
 
 #### Message Format (Client to Server)
 ```json
@@ -442,6 +442,10 @@ Real-time updates are provided through WebSocket connections:
 
 ## 🔧 Development
 
+#### Development Environment
+- **Frontend**: Vite dev server (port 5177)
+- **Backend**: FastAPI dev server (port 8007)
+
 ### Backend Development
 
 ```bash
@@ -499,11 +503,11 @@ npm run type-check
 pip install gunicorn
 
 # Run with Gunicorn
-gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8007
 
 # Or use Docker
 docker build -t cisco-rag-backend .
-docker run -p 8000:8000 cisco-rag-backend
+docker run -p 8007:8007 cisco-rag-backend
 ```
 
 ### Frontend Deployment
@@ -525,7 +529,7 @@ serve -s dist -l 3000
 # Production settings
 DEBUG=false
 HOST=0.0.0.0
-PORT=8000
+PORT=8007
 ALLOWED_ORIGINS=https://yourdomain.com
 
 # Use production database
@@ -545,10 +549,10 @@ SUPABASE_KEY=your_production_supabase_key
 - **Check Python Version**: Ensure Python 3.8+
 - **Virtual Environment**: Ensure virtual environment is activated
 - **Dependencies**: Run `pip install -r requirements.txt`
-- **Port Conflicts**: Check if port 8000 is available
+- **Port Conflicts**: Check if port 8007 is available
 
 #### Frontend Won't Connect to Backend
-- **Backend Running**: Ensure backend is running on port 8000
+- **Backend Running**: Ensure backend is running on port 8007
 - **CORS Issues**: Check `ALLOWED_ORIGINS` in backend `.env`
 - **WebSocket Connection**: Check browser console for WebSocket errors
 

@@ -30,7 +30,7 @@ export const useWebSocket = (clientId: string = "default") => {
     try {
       // Check if we're in development or production environment
       const host = window.location.hostname;
-      const port = "8000";
+      const port = "8007";
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
       // Use the current host in production, localhost in development
@@ -77,7 +77,7 @@ export const useWebSocket = (clientId: string = "default") => {
       ws.onerror = (error) => {
         console.error("WebSocket connection error:", error);
         setError(
-          "Cannot connect to backend server. Please ensure the Python backend is running on localhost:8000",
+          "Cannot connect to backend server. Please ensure the Python backend is running on localhost:8007",
         );
         setIsConnected(false);
       };
