@@ -7,6 +7,7 @@ import logging
 from typing import Dict, List, Any, AsyncGenerator
 from datetime import datetime
 import json
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,8 @@ class AIAgentService:
         self.groq_client = None  # Will be initialized with API key
         self.ollama_endpoint = "http://localhost:11434"
         self.prefer_ollama = True
+        self.discovered_documents = []
+        self.document_hashes = set()
     
     async def run_agent(self, query: str, certification_level: str = "all",
                        max_documents: int = 4) -> AsyncGenerator[Dict[str, Any], None]:
@@ -154,6 +157,9 @@ class AIAgentService:
             results = new_results
             current_step = f"AI Agent completed: {len(new_results)} new documents found for enhanced RAG training"
             
+            # Save discovered documents for later use
+            self.discovered_documents = new_results
+            
             # Final result
             yield {
                 "steps": steps,
@@ -258,18 +264,85 @@ class AIAgentService:
         
         return sorted(results, key=lambda x: x["relevance"], reverse=True)
     
-    async def download_document(self, document_id: str, document: Dict[str, Any]) -> Dict[str, Any]:
+    async def download_document(self, document_id: str, document: Dict[str, Any] = None) -> Dict[str, Any]:
         """Download a specific document"""
-        # Simulate download with progress updates
-        document["downloadStatus"] = "downloading"
-        document["downloadProgress"] = 0
+        # Find document if not provided
+        if not document:
+            doc = next((d for d in self.discovered_documents if d["id"] == document_id), None)
+            if not doc:
+                raise ValueError(f"Document {document_id} not found")
+        else:
+            doc = document
+            
+        # Check if document already exists
+        doc_hash = self._generate_document_hash(doc)
+        if doc_hash in self.document_hashes:
+            logger.info(f"Document already exists: {doc['title']}")
+            doc["downloadStatus"] = "completed"
+            doc["downloadProgress"] = 100
+            doc["downloaded_at"] = datetime.now().isoformat()
+            return doc
+            
+        # Simulate download process
+        doc["downloadStatus"] = "downloading"
+        doc["downloadProgress"] = 0
         
-        for progress in range(0, 101, 10):
-            await asyncio.sleep(0.2)
-            document["downloadProgress"] = progress
+        try:
+            # In production, actually download the document
+            # For now, simulate the download process
+            for progress in range(0, 101, 10):
+                await asyncio.sleep(0.2)
+                doc["downloadProgress"] = progress
+                # This would be a good place to send progress updates via WebSocket
+            
+            # Save document info
+            doc["downloadStatus"] = "completed"
+            doc["downloadProgress"] = 100
+            doc["downloaded_at"] = datetime.now().isoformat()
+            doc["local_path"] = f"./data/documents/{document_id}.pdf"  # Mock local path
+            
+            # Add document hash to prevent duplicates
+            self.document_hashes.add(doc_hash)
+            
+            return doc
+            
+        except Exception as e:
+            logger.error(f"Download failed for {doc['title']}: {str(e)}")
+            doc["downloadStatus"] = "failed"
+            doc["download_error"] = str(e)
+            return doc
+            
+    def _generate_document_hash(self, document: Dict[str, Any]) -> str:
+        """Generate a unique hash for document to prevent duplicates"""
+        hash_string = f"{document['url']}_{document['title']}_{document['source']}"
+        return hashlib.md5(hash_string.encode()).hexdigest()[:16]
         
-        document["downloadStatus"] = "completed"
-        document["downloadProgress"] = 100
-        document["downloadedAt"] = datetime.now().isoformat()
+    async def chat(self, messages: List[Dict[str, str]], model: str = "llama-3.3-70b-versatile") -> str:
+        """Chat with LLM (Groq or Ollama)"""
+        # Simulate LLM API call
+        await asyncio.sleep(1.5)
         
-        return document
+        # Mock response based on the last user message
+        user_message = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+        
+        if "configuration" in user_message.lower():
+            return "To configure this feature, you'll need to follow these steps: 1) Access the settings menu, 2) Select the appropriate option, 3) Enter the required parameters."
+        elif "troubleshoot" in user_message.lower():
+            return "When troubleshooting this issue, first check the connection status, then verify the configuration parameters, and finally restart the service if needed."
+        else:
+            return f"I understand your question about '{user_message}'. This is a simulated response from the backend LLM service."
+            
+    async def generate_synthetic_data(self, seed_content: str, topic: str, data_type: str, count: int = 10) -> List[str]:
+        """Generate synthetic training data"""
+        # Simulate data generation
+        await asyncio.sleep(2)
+        
+        # Mock synthetic data
+        prefix = {
+            "error-patterns": "Common error: ",
+            "best-practices": "Best practice: ",
+            "troubleshooting": "Troubleshooting step: ",
+            "configurations": "Configuration example: "
+        }.get(data_type, "")
+        
+        return [f"{prefix}{topic} example #{i+1} - This is synthetic training data generated for {data_type}." for i in range(count)]

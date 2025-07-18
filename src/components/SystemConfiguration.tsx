@@ -96,6 +96,51 @@ const SystemConfiguration = ({
       });
     }
   }, [isConnected, sendMessage]);
+
+  // Get system resources from backend
+  React.useEffect(() => {
+    if (isConnected) {
+      // Initial request for system resources
+      sendMessage({
+        action: "get_status",
+        data: {},
+      });
+
+      // Set up interval to request updates
+      const interval = setInterval(() => {
+        sendMessage({
+          action: "get_status",
+          data: {},
+        });
+      }, 5000);
+
+      // Handle system status updates
+      const removeStatusListener = onMessage("system_status", (data) => {
+        if (data.status && data.status.resources) {
+          setSystemResources(data.status.resources);
+        }
+      });
+
+      // Handle API keys updates
+      const removeApiKeysListener = onMessage("config_updated", (data) => {
+        if (
+          data.result &&
+          data.result.config &&
+          data.result.config.llm_config &&
+          data.result.config.llm_config.groq_keys
+        ) {
+          setGroqApiKeys(data.result.config.llm_config.groq_keys);
+        }
+      });
+
+      return () => {
+        clearInterval(interval);
+        removeStatusListener();
+        removeApiKeysListener();
+      };
+    }
+  }, [isConnected, sendMessage, onMessage]);
+
   const [ollamaConfig, setOllamaConfig] = useState(
     initialConfig.ollamaConfig || {
       endpoint: "http://localhost:11434",
@@ -163,51 +208,6 @@ const SystemConfiguration = ({
       removeTestProgressListener();
     };
   }, [onMessage]);
-
-  // Simulate real-time resource monitoring
-  // Get system resources from backend
-  React.useEffect(() => {
-    if (isConnected) {
-      // Initial request for system resources
-      sendMessage({
-        action: "get_status",
-        data: {},
-      });
-
-      // Set up interval to request updates
-      const interval = setInterval(() => {
-        sendMessage({
-          action: "get_status",
-          data: {},
-        });
-      }, 5000);
-
-      // Handle system status updates
-      const removeStatusListener = onMessage("system_status", (data) => {
-        if (data.status && data.status.resources) {
-          setSystemResources(data.status.resources);
-        }
-      });
-
-      // Handle API keys updates
-      const removeApiKeysListener = onMessage("config_updated", (data) => {
-        if (
-          data.result &&
-          data.result.config &&
-          data.result.config.llm_config &&
-          data.result.config.llm_config.groq_keys
-        ) {
-          setGroqApiKeys(data.result.config.llm_config.groq_keys);
-        }
-      });
-
-      return () => {
-        clearInterval(interval);
-        removeStatusListener();
-        removeApiKeysListener();
-      };
-    }
-  }, [isConnected, sendMessage, onMessage]);
 
   return (
     <div className="w-full h-full p-6 bg-background">
@@ -760,20 +760,7 @@ const SystemConfiguration = ({
                     type="password"
                     placeholder="Enter your Groq API key (gsk_...)"
                     onChange={(e) => {
-                      if (e.target.value.trim()) {
-                        // Save API key via WebSocket
-                        sendMessage({
-                          action: "system_config",
-                          data: {
-                            request: "save_api_key",
-                            key_data: {
-                              name: "Quick Setup Key",
-                              key: e.target.value.trim(),
-                              active: true,
-                            },
-                          },
-                        });
-                      }
+                      // API key updates are now handled by the backend via WebSocket
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -1039,10 +1026,7 @@ const SystemConfiguration = ({
                             value={newKeyValue}
                             onChange={(e) => {
                               setNewKeyValue(e.target.value);
-                              // Update the Groq client with the new key for testing
-                              if (e.target.value.trim()) {
-                                groqClient.setApiKey(e.target.value.trim());
-                              }
+                              // API key updates are now handled by the backend via WebSocket
                             }}
                           />
                         </div>
