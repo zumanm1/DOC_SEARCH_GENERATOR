@@ -109,6 +109,8 @@ async def handle_websocket_message(client_id: str, message: Dict[str, Any]):
         
         if action == "document_discovery":
             await handle_document_discovery(client_id, data)
+        elif action == "process_local_files":
+            await handle_process_local_files(client_id, data)
         elif action == "document_search":
             await handle_document_search(client_id, data)
         elif action == "ai_agent":
@@ -418,6 +420,29 @@ async def handle_advanced_search(client_id: str, data: Dict[str, Any]):
     except Exception as e:
         await websocket_manager.send_error(client_id, f"Advanced search error: {str(e)}")
 
+async def handle_process_local_files(client_id: str, data: Dict[str, Any]):
+    """Handle local file processing requests"""
+    try:
+        # Send initial status
+        await websocket_manager.send_message(client_id, {
+            "type": "local_files_status",
+            "status": "starting",
+            "message": "Starting local file processing..."
+        })
+        
+        # Start file processing
+        async for update in document_discovery.process_local_files(
+            files_data=data.get("files", []),
+            directory_path=data.get("directory_path")
+        ):
+            await websocket_manager.send_message(client_id, {
+                "type": "local_files_update",
+                **update
+            })
+            
+    except Exception as e:
+        await websocket_manager.send_error(client_id, f"Local file processing error: {str(e)}")
+
 # REST API endpoints for basic operations
 @app.get("/")
 async def root():
@@ -446,6 +471,11 @@ async def health_check():
 async def get_documents():
     """Get list of discovered documents"""
     return await document_discovery.get_documents()
+
+@app.get("/api/local-files")
+async def get_local_files():
+    """Get list of processed local files"""
+    return await document_discovery.get_local_files()
 
 @app.get("/api/system/status")
 async def get_system_status():

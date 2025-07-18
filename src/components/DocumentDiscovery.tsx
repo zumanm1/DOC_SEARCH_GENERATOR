@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { Search, Download, FileText, Filter, RefreshCw, X } from "lucide-react";
+import {
+  Search,
+  Download,
+  FileText,
+  Filter,
+  RefreshCw,
+  X,
+  Upload,
+  FolderOpen,
+  File,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -112,6 +122,15 @@ const DocumentDiscovery: React.FC<DocumentDiscoveryProps> = ({
   const [useAIAgent, setUseAIAgent] = useState(true);
   const [aiAgentActive, setAiAgentActive] = useState(false);
   const [aiResults, setAiResults] = useState<any[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: number;
+  }>({});
+  const [uploadStatus, setUploadStatus] = useState<{ [key: string]: string }>(
+    {},
+  );
+  const [directoryPath, setDirectoryPath] = useState("");
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
 
   // Mock certification levels
   const certificationLevels = [
@@ -202,13 +221,135 @@ const DocumentDiscovery: React.FC<DocumentDiscoveryProps> = ({
     });
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const supportedTypes = [
+      "application/pdf",
+      "text/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "text/plain",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    const validFiles = files.filter(
+      (file) =>
+        supportedTypes.includes(file.type) ||
+        file.name.toLowerCase().endsWith(".pdf") ||
+        file.name.toLowerCase().endsWith(".csv") ||
+        file.name.toLowerCase().endsWith(".xlsx") ||
+        file.name.toLowerCase().endsWith(".xls") ||
+        file.name.toLowerCase().endsWith(".doc") ||
+        file.name.toLowerCase().endsWith(".docx") ||
+        file.name.toLowerCase().endsWith(".txt"),
+    );
+
+    setUploadedFiles((prev) => [...prev, ...validFiles]);
+
+    // Initialize progress and status for new files
+    validFiles.forEach((file) => {
+      setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
+      setUploadStatus((prev) => ({ ...prev, [file.name]: "pending" }));
+    });
+  };
+
+  const handleProcessFiles = async () => {
+    if (uploadedFiles.length === 0 && !directoryPath) {
+      return;
+    }
+
+    setIsProcessingFiles(true);
+    setActiveTab("results");
+
+    try {
+      // Process uploaded files
+      for (const file of uploadedFiles) {
+        setUploadStatus((prev) => ({ ...prev, [file.name]: "processing" }));
+
+        // Simulate file processing
+        for (let progress = 0; progress <= 100; progress += 10) {
+          setUploadProgress((prev) => ({ ...prev, [file.name]: progress }));
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+
+        setUploadStatus((prev) => ({ ...prev, [file.name]: "completed" }));
+
+        // Add to discovered documents
+        const processedDoc = {
+          id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: file.name,
+          source: "local-upload",
+          type: file.type.includes("pdf")
+            ? "PDF"
+            : file.type.includes("csv")
+              ? "CSV"
+              : file.type.includes("excel") ||
+                  file.name.includes(".xlsx") ||
+                  file.name.includes(".xls")
+                ? "Excel"
+                : file.type.includes("image")
+                  ? "Image"
+                  : file.type.includes("word") || file.name.includes(".doc")
+                    ? "Word"
+                    : "Document",
+          size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          relevance: 1.0,
+          downloadStatus: "completed" as const,
+          downloadProgress: 100,
+          url: URL.createObjectURL(file),
+          summary: `Local file: ${file.name} (${file.type || "Unknown type"})`,
+          isLocalFile: true,
+          fileObject: file,
+        };
+
+        setAiResults((prev) => [...prev, processedDoc]);
+      }
+
+      // Process directory if specified
+      if (directoryPath) {
+        // Note: Directory processing would require backend support
+        // For now, we'll show a message about this feature
+        console.log(
+          "Directory processing would be handled by backend:",
+          directoryPath,
+        );
+      }
+    } catch (error) {
+      console.error("Error processing files:", error);
+    } finally {
+      setIsProcessingFiles(false);
+    }
+  };
+
+  const removeUploadedFile = (fileName: string) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.name !== fileName));
+    setUploadProgress((prev) => {
+      const newProgress = { ...prev };
+      delete newProgress[fileName];
+      return newProgress;
+    });
+    setUploadStatus((prev) => {
+      const newStatus = { ...prev };
+      delete newStatus[fileName];
+      return newStatus;
+    });
+  };
+
   return (
     <div className="bg-background w-full p-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="search" className="flex items-center gap-2">
             <Search className="h-4 w-4" />
-            Configure Search
+            Web Discovery
+          </TabsTrigger>
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Local Files
           </TabsTrigger>
           <TabsTrigger value="results" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -383,6 +524,199 @@ const DocumentDiscovery: React.FC<DocumentDiscoveryProps> = ({
                     Step {Math.ceil(discoveryProgress.progress / 20)} of{" "}
                     {discoveryProgress.totalSteps}
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="upload" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Local File Upload</CardTitle>
+              <CardDescription>
+                Upload local files (PDF, CSV, Excel, Images, Word documents) for
+                processing and indexing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* File Upload Section */}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="file-upload">Select Files</Label>
+                  <div className="mt-2">
+                    <input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      accept=".pdf,.csv,.xlsx,.xls,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+                      onChange={handleFileUpload}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supported formats: PDF, CSV, Excel (.xlsx, .xls), Word
+                    (.doc, .docx), Text (.txt), Images (.jpg, .png, .gif)
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Directory Path Section */}
+                <div>
+                  <Label htmlFor="directory-path">
+                    Or Specify Directory Path
+                  </Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      id="directory-path"
+                      placeholder="e.g., /path/to/documents or C:\\Documents\\PDFs"
+                      value={directoryPath}
+                      onChange={(e) => setDirectoryPath(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button variant="outline" size="sm">
+                      <FolderOpen className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Backend will scan the directory for supported file types
+                  </p>
+                </div>
+              </div>
+
+              {/* Uploaded Files List */}
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Label>Uploaded Files ({uploadedFiles.length})</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setUploadedFiles([]);
+                        setUploadProgress({});
+                        setUploadStatus({});
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <File className="h-5 w-5 text-blue-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {(file.size / (1024 * 1024)).toFixed(1)} MB •{" "}
+                              {file.type || "Unknown type"}
+                            </p>
+                            {uploadStatus[file.name] === "processing" && (
+                              <div className="mt-1">
+                                <Progress
+                                  value={uploadProgress[file.name]}
+                                  className="h-1"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {uploadStatus[file.name] === "completed" && (
+                            <Badge
+                              variant="default"
+                              className="bg-green-100 text-green-800"
+                            >
+                              Processed
+                            </Badge>
+                          )}
+                          {uploadStatus[file.name] === "processing" && (
+                            <Badge variant="secondary">Processing...</Badge>
+                          )}
+                          {uploadStatus[file.name] === "pending" && (
+                            <Badge variant="outline">Pending</Badge>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeUploadedFile(file.name)}
+                            disabled={uploadStatus[file.name] === "processing"}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setUploadedFiles([]);
+                  setUploadProgress({});
+                  setUploadStatus({});
+                  setDirectoryPath("");
+                }}
+                disabled={isProcessingFiles}
+              >
+                Reset
+              </Button>
+              <Button
+                onClick={handleProcessFiles}
+                disabled={
+                  (uploadedFiles.length === 0 && !directoryPath) ||
+                  isProcessingFiles
+                }
+              >
+                {isProcessingFiles ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Processing Files...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Process Files ({uploadedFiles.length})
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Processing Progress */}
+          {isProcessingFiles && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>Processing Local Files</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="truncate">{file.name}</span>
+                        <span>{uploadProgress[file.name] || 0}%</span>
+                      </div>
+                      <Progress
+                        value={uploadProgress[file.name] || 0}
+                        className="h-2"
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        Status: {uploadStatus[file.name] || "pending"}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

@@ -5,13 +5,21 @@ Document Discovery Service - Migrated from frontend web-search.ts
 import asyncio
 import logging
 import re
-from typing import Dict, List, Any, AsyncGenerator
+from typing import Dict, List, Any, AsyncGenerator, Union
 from datetime import datetime
 import httpx
 from bs4 import BeautifulSoup
 import json
 import hashlib
 import os
+import base64
+from pathlib import Path
+import mimetypes
+from PIL import Image
+import PyPDF2
+import openpyxl
+import csv
+import chardet
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +40,22 @@ class DocumentDiscoveryService:
         
         # Create data directory if it doesn't exist
         os.makedirs("./data/documents", exist_ok=True)
+        os.makedirs("./data/uploads", exist_ok=True)
+        
+        # Supported file types for local upload
+        self.supported_file_types = {
+            '.pdf': 'application/pdf',
+            '.csv': 'text/csv',
+            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            '.xls': 'application/vnd.ms-excel',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.txt': 'text/plain',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif'
+        }
     
     async def discover_documents(self, topic: str, certification_level: str = "all", 
                                max_documents: int = 4, sources: List[str] = None,
@@ -581,3 +605,361 @@ class DocumentDiscoveryService:
                 doc["processed_at"] = datetime.now().isoformat()
                 logger.info(f"Marked document {document_id} as processed")
                 break
+    
+    async def process_local_files(self, files_data: List[Dict[str, Any]], 
+                                 directory_path: str = None) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process local files and/or directory"""
+        
+        yield {
+            "step": "initialize",
+            "progress": 0,
+            "message": "Initializing local file processing...",
+            "status": "running"
+        }
+        
+        await asyncio.sleep(0.5)
+        
+        processed_files = []
+        total_files = len(files_data) + (1 if directory_path else 0)
+        current_file = 0
+        
+        # Process uploaded files
+        for file_data in files_data:
+            current_file += 1
+            progress = (current_file / total_files) * 80  # Reserve 20% for final steps
+            
+            yield {
+                "step": "process_file",
+                "progress": progress,
+                "message": f"Processing file {current_file}/{len(files_data)}: {file_data.get('name', 'Unknown')}",
+                "status": "running",
+                "current_file": file_data.get('name')
+            }
+            
+            try:
+                processed_file = await self._process_single_file(file_data)
+                if processed_file:
+                    processed_files.append(processed_file)
+                    
+            except Exception as e:
+                logger.error(f"Error processing file {file_data.get('name')}: {str(e)}")
+                yield {
+                    "step": "process_file",
+                    "progress": progress,
+                    "message": f"Error processing {file_data.get('name')}: {str(e)}",
+                    "status": "error",
+                    "current_file": file_data.get('name')
+                }
+        
+        # Process directory if specified
+        if directory_path:
+            current_file += 1
+            progress = (current_file / total_files) * 80
+            
+            yield {
+                "step": "process_directory",
+                "progress": progress,
+                "message": f"Scanning directory: {directory_path}",
+                "status": "running"
+            }
+            
+            try:
+                directory_files = await self._process_directory(directory_path)
+                processed_files.extend(directory_files)
+                
+            except Exception as e:
+                logger.error(f"Error processing directory {directory_path}: {str(e)}")
+                yield {
+                    "step": "process_directory",
+                    "progress": progress,
+                    "message": f"Error processing directory: {str(e)}",
+                    "status": "error"
+                }
+        
+        # Finalize processing
+        yield {
+            "step": "finalize",
+            "progress": 90,
+            "message": "Finalizing processed files...",
+            "status": "running"
+        }
+        
+        await asyncio.sleep(0.5)
+        
+        # Add to discovered documents
+        self.discovered_documents.extend(processed_files)
+        
+        # Final result
+        yield {
+            "step": "completed",
+            "progress": 100,
+            "message": f"Local file processing completed - {len(processed_files)} files processed",
+            "status": "completed",
+            "documents": processed_files,
+            "count": len(processed_files)
+        }
+    
+    async def _process_single_file(self, file_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single uploaded file"""
+        
+        file_name = file_data.get('name', 'unknown')
+        file_content = file_data.get('content')  # Base64 encoded content
+        file_type = file_data.get('type', '')
+        file_size = file_data.get('size', 0)
+        
+        # Generate unique ID
+        file_id = hashlib.md5(f"{file_name}_{datetime.now().isoformat()}".encode()).hexdigest()[:12]
+        
+        # Determine file extension and type
+        file_path = Path(file_name)
+        file_extension = file_path.suffix.lower()
+        
+        if file_extension not in self.supported_file_types:
+            logger.warning(f"Unsupported file type: {file_extension}")
+            return None
+        
+        # Save file locally
+        local_path = f"./data/uploads/{file_id}_{file_name}"
+        
+        try:
+            if file_content:
+                # Decode base64 content and save
+                file_bytes = base64.b64decode(file_content)
+                with open(local_path, 'wb') as f:
+                    f.write(file_bytes)
+            
+            # Extract text content based on file type
+            extracted_text = await self._extract_text_from_file(local_path, file_extension)
+            
+            # Create document entry
+            document = {
+                "id": f"local_{file_id}",
+                "title": file_name,
+                "source": "local-upload",
+                "type": self._get_document_type(file_extension),
+                "size": self._format_file_size(file_size),
+                "relevance": 1.0,  # Local files are always 100% relevant
+                "downloadStatus": "completed",
+                "downloadProgress": 100,
+                "url": local_path,
+                "summary": f"Local file: {file_name}. {extracted_text[:200]}..." if extracted_text else f"Local file: {file_name}",
+                "local_path": local_path,
+                "file_extension": file_extension,
+                "mime_type": self.supported_file_types.get(file_extension, 'application/octet-stream'),
+                "extracted_text": extracted_text,
+                "is_local_file": True,
+                "uploaded_at": datetime.now().isoformat()
+            }
+            
+            return document
+            
+        except Exception as e:
+            logger.error(f"Error processing file {file_name}: {str(e)}")
+            # Clean up file if it was created
+            if os.path.exists(local_path):
+                os.remove(local_path)
+            return None
+    
+    async def _process_directory(self, directory_path: str) -> List[Dict[str, Any]]:
+        """Process all supported files in a directory"""
+        
+        if not os.path.exists(directory_path):
+            raise ValueError(f"Directory does not exist: {directory_path}")
+        
+        processed_files = []
+        directory = Path(directory_path)
+        
+        # Find all supported files in directory
+        for file_path in directory.rglob('*'):
+            if file_path.is_file() and file_path.suffix.lower() in self.supported_file_types:
+                try:
+                    # Read file content
+                    with open(file_path, 'rb') as f:
+                        file_content = base64.b64encode(f.read()).decode('utf-8')
+                    
+                    file_data = {
+                        'name': file_path.name,
+                        'content': file_content,
+                        'type': self.supported_file_types.get(file_path.suffix.lower(), ''),
+                        'size': file_path.stat().st_size
+                    }
+                    
+                    processed_file = await self._process_single_file(file_data)
+                    if processed_file:
+                        processed_files.append(processed_file)
+                        
+                except Exception as e:
+                    logger.error(f"Error processing file {file_path}: {str(e)}")
+                    continue
+        
+        return processed_files
+    
+    async def _extract_text_from_file(self, file_path: str, file_extension: str) -> str:
+        """Extract text content from various file types"""
+        
+        try:
+            if file_extension == '.pdf':
+                return await self._extract_text_from_pdf(file_path)
+            elif file_extension == '.csv':
+                return await self._extract_text_from_csv(file_path)
+            elif file_extension in ['.xlsx', '.xls']:
+                return await self._extract_text_from_excel(file_path)
+            elif file_extension == '.txt':
+                return await self._extract_text_from_txt(file_path)
+            elif file_extension in ['.jpg', '.jpeg', '.png', '.gif']:
+                return await self._extract_text_from_image(file_path)
+            elif file_extension in ['.doc', '.docx']:
+                return await self._extract_text_from_word(file_path)
+            else:
+                return "Text extraction not supported for this file type."
+                
+        except Exception as e:
+            logger.error(f"Error extracting text from {file_path}: {str(e)}")
+            return f"Error extracting text: {str(e)}"
+    
+    async def _extract_text_from_pdf(self, file_path: str) -> str:
+        """Extract text from PDF file"""
+        text_content = []
+        
+        try:
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    text_content.append(page.extract_text())
+            
+            return '\n'.join(text_content)
+            
+        except Exception as e:
+            logger.error(f"Error reading PDF {file_path}: {str(e)}")
+            return f"PDF processing error: {str(e)}"
+    
+    async def _extract_text_from_csv(self, file_path: str) -> str:
+        """Extract text from CSV file"""
+        text_content = []
+        
+        try:
+            # Detect encoding
+            with open(file_path, 'rb') as file:
+                raw_data = file.read()
+                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
+            
+            with open(file_path, 'r', encoding=encoding) as file:
+                csv_reader = csv.reader(file)
+                for row_num, row in enumerate(csv_reader):
+                    if row_num == 0:
+                        text_content.append(f"Headers: {', '.join(row)}")
+                    else:
+                        text_content.append(f"Row {row_num}: {', '.join(row)}")
+                    
+                    # Limit to first 100 rows for performance
+                    if row_num >= 100:
+                        text_content.append("... (truncated for performance)")
+                        break
+            
+            return '\n'.join(text_content)
+            
+        except Exception as e:
+            logger.error(f"Error reading CSV {file_path}: {str(e)}")
+            return f"CSV processing error: {str(e)}"
+    
+    async def _extract_text_from_excel(self, file_path: str) -> str:
+        """Extract text from Excel file"""
+        text_content = []
+        
+        try:
+            workbook = openpyxl.load_workbook(file_path, read_only=True)
+            
+            for sheet_name in workbook.sheetnames:
+                sheet = workbook[sheet_name]
+                text_content.append(f"Sheet: {sheet_name}")
+                
+                for row_num, row in enumerate(sheet.iter_rows(values_only=True), 1):
+                    if row_num == 1:
+                        text_content.append(f"Headers: {', '.join(str(cell) for cell in row if cell is not None)}")
+                    else:
+                        row_text = ', '.join(str(cell) for cell in row if cell is not None)
+                        if row_text.strip():
+                            text_content.append(f"Row {row_num}: {row_text}")
+                    
+                    # Limit to first 100 rows per sheet
+                    if row_num >= 100:
+                        text_content.append("... (truncated for performance)")
+                        break
+                
+                text_content.append("")  # Empty line between sheets
+            
+            workbook.close()
+            return '\n'.join(text_content)
+            
+        except Exception as e:
+            logger.error(f"Error reading Excel {file_path}: {str(e)}")
+            return f"Excel processing error: {str(e)}"
+    
+    async def _extract_text_from_txt(self, file_path: str) -> str:
+        """Extract text from text file"""
+        try:
+            # Detect encoding
+            with open(file_path, 'rb') as file:
+                raw_data = file.read()
+                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
+            
+            with open(file_path, 'r', encoding=encoding) as file:
+                return file.read()
+                
+        except Exception as e:
+            logger.error(f"Error reading text file {file_path}: {str(e)}")
+            return f"Text file processing error: {str(e)}"
+    
+    async def _extract_text_from_image(self, file_path: str) -> str:
+        """Extract text from image file (basic metadata)"""
+        try:
+            with Image.open(file_path) as img:
+                # For now, just return image metadata
+                # In production, you might want to use OCR (like Tesseract)
+                return f"Image file: {img.format}, Size: {img.size}, Mode: {img.mode}"
+                
+        except Exception as e:
+            logger.error(f"Error reading image {file_path}: {str(e)}")
+            return f"Image processing error: {str(e)}"
+    
+    async def _extract_text_from_word(self, file_path: str) -> str:
+        """Extract text from Word document"""
+        # Note: This would require python-docx for .docx files
+        # For now, return a placeholder
+        return f"Word document processing not fully implemented. File: {os.path.basename(file_path)}"
+    
+    def _get_document_type(self, file_extension: str) -> str:
+        """Get document type based on file extension"""
+        type_mapping = {
+            '.pdf': 'PDF',
+            '.csv': 'CSV',
+            '.xlsx': 'Excel',
+            '.xls': 'Excel',
+            '.doc': 'Word',
+            '.docx': 'Word',
+            '.txt': 'Text',
+            '.jpg': 'Image',
+            '.jpeg': 'Image',
+            '.png': 'Image',
+            '.gif': 'Image'
+        }
+        return type_mapping.get(file_extension, 'Document')
+    
+    def _format_file_size(self, size_bytes: int) -> str:
+        """Format file size in human readable format"""
+        if size_bytes == 0:
+            return "0 B"
+        
+        size_names = ["B", "KB", "MB", "GB"]
+        i = 0
+        size = float(size_bytes)
+        
+        while size >= 1024.0 and i < len(size_names) - 1:
+            size /= 1024.0
+            i += 1
+        
+        return f"{size:.1f} {size_names[i]}"
+    
+    async def get_local_files(self) -> List[Dict[str, Any]]:
+        """Get list of processed local files"""
+        return [doc for doc in self.discovered_documents if doc.get("is_local_file", False)]

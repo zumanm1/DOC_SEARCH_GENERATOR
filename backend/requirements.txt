@@ -48,3 +48,9 @@ loguru==0.7.2
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
+
+# File processing
+pillow==10.1.0
+openpyxl==3.1.2
+python-magic==0.4.27
+chardet==5.2.0
