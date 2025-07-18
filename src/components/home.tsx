@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import Dashboard from "./Dashboard";
@@ -6,17 +6,24 @@ import { AlertCircle, CheckCircle, Globe, HardDrive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 export default function Home() {
   const [operationMode, setOperationMode] = useState<"online" | "offline">(
-    "online",
+    "offline",
   );
   const [connectionStatus, setConnectionStatus] = useState<
     "connected" | "disconnected"
-  >("connected");
-  const [databaseType, setDatabaseType] = useState<
-    "sqlite" | "postgresql" | "supabase"
-  >("supabase");
+  >("disconnected");
+  const [databaseType] = useState("SQLite");
+
+  // WebSocket connection for backend status
+  const { isConnected } = useWebSocket("home-status");
+
+  // Update connection status based on WebSocket
+  useEffect(() => {
+    setConnectionStatus(isConnected ? "connected" : "disconnected");
+  }, [isConnected]);
 
   // Mock function to toggle operation mode
   const handleModeToggle = (checked: boolean) => {

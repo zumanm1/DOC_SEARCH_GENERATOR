@@ -3,12 +3,15 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 websockets==12.0
 pydantic==2.5.0
+python-multipart==0.0.6
 
 # HTTP and web scraping
 httpx==0.25.2
 requests==2.31.0
 beautifulsoup4==4.12.2
 lxml==4.9.3
+aiohttp==3.9.1
+aiofiles==23.2.1
 
 # AI/ML and LLM integration
 groq==0.4.1
@@ -25,22 +28,24 @@ scipy==1.11.4
 # Database support
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
-sqlite3
+# Note: sqlite3 is included with Python standard library
 
 # Document processing
 PyPDF2==3.0.1
 pdfplumber==0.10.3
 python-docx==1.1.0
+openpyxl==3.1.2
+chardet==5.2.0
+python-magic==0.4.27
 
-# Async and utilities
-aiofiles==23.2.1
-aiohttp==3.9.1
-python-multipart==0.0.6
-python-dotenv==1.0.0
+# Image processing
+Pillow==10.1.0
 
 # Data processing
 pandas==2.1.4
-numpy==1.24.3
+
+# Environment and configuration
+python-dotenv==1.0.0
 
 # Logging and monitoring
 loguru==0.7.2
@@ -49,8 +54,10 @@ loguru==0.7.2
 pytest==7.4.3
 pytest-asyncio==0.21.1
 
-# File processing
-pillow==10.1.0
-openpyxl==3.1.2
-python-magic==0.4.27
-chardet==5.2.0
+# Development tools (optional)
+black==23.12.1
+flake8==6.1.0
+isort==5.13.2
+
+# Production server
+gunicorn==21.2.0

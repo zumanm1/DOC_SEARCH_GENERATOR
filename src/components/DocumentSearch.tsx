@@ -98,6 +98,32 @@ const DocumentSearch = () => {
       pageReferences: [45, 67, 89, 120],
       dateAdded: "2023-09-05",
     },
+    {
+      id: "4",
+      title: "Cisco IOS Security Configuration Guide",
+      source: "cisco.com",
+      relevanceScore: 0.82,
+      documentType: "configuration",
+      certificationLevel: ["CCNA Security", "CCNP Security"],
+      summary:
+        "Complete reference for configuring security features in Cisco IOS including access control lists, firewall services, VPN technologies, and intrusion prevention systems.",
+      localPath: "/documents/ios_security_guide.pdf",
+      pageReferences: [18, 42, 73, 105],
+      dateAdded: "2023-10-30",
+    },
+    {
+      id: "5",
+      title: "QoS Implementation Strategies for Converged Networks",
+      source: "ciscopress.com",
+      relevanceScore: 0.75,
+      documentType: "configuration",
+      certificationLevel: ["CCNP"],
+      summary:
+        "Strategies and configurations for implementing Quality of Service in networks carrying voice, video, and data traffic to ensure optimal performance for critical applications.",
+      localPath: "/documents/qos_implementation.pdf",
+      pageReferences: [27, 53, 81],
+      dateAdded: "2023-09-18",
+    },
   ]);
 
   const handleSearch = () => {
@@ -107,9 +133,78 @@ const DocumentSearch = () => {
       setAiAgentActive(true);
     } else {
       setIsSearching(true);
-      // Simulate search delay
+      // Simulate search with mock results
       setTimeout(() => {
-        // In a real implementation, this would call the backend API
+        // Generate more relevant mock results based on the search query
+        const queryLower = searchQuery.toLowerCase();
+        let filteredResults = [];
+
+        // Add BGP-related results if query contains BGP
+        if (queryLower.includes("bgp")) {
+          filteredResults.push({
+            id: "search-bgp-1",
+            title:
+              "BGP Configuration and Troubleshooting Guide - ASR 1000 Series",
+            source: "cisco.com",
+            relevanceScore: 0.97,
+            documentType: "troubleshooting",
+            certificationLevel: ["CCNP", "CCIE"],
+            summary:
+              "Comprehensive guide covering BGP implementation on ASR 1000 series routers, including configuration examples, troubleshooting common issues, and best practices for enterprise deployments.",
+            localPath: "/documents/bgp_asr1000_guide.pdf",
+            pageReferences: [23, 45, 67, 89],
+            dateAdded: "2023-11-15",
+          });
+          filteredResults.push({
+            id: "search-bgp-2",
+            title: "BGP Route Reflectors and Confederations Design Guide",
+            source: "ciscopress.com",
+            relevanceScore: 0.89,
+            documentType: "configuration",
+            certificationLevel: ["CCNP", "CCIE"],
+            summary:
+              "Detailed design guide for implementing BGP route reflectors and confederations in large-scale networks to optimize routing and improve scalability.",
+            localPath: "/documents/bgp_design_guide.pdf",
+            pageReferences: [12, 34, 56, 78],
+            dateAdded: "2023-10-05",
+          });
+        }
+
+        // Add OSPF-related results if query contains OSPF
+        if (queryLower.includes("ospf")) {
+          filteredResults.push({
+            id: "search-ospf-1",
+            title: "OSPF Design and Implementation Guide",
+            source: "ciscopress.com",
+            relevanceScore: 0.85,
+            documentType: "configuration",
+            certificationLevel: ["CCNA", "CCNP"],
+            summary:
+              "Detailed guide on OSPF protocol design considerations, implementation strategies, and optimization techniques for various network topologies.",
+            localPath: "/documents/ospf_design_guide.pdf",
+            pageReferences: [12, 34, 56],
+            dateAdded: "2023-10-22",
+          });
+        }
+
+        // If no specific protocol matches, use generic results or filter existing ones
+        if (filteredResults.length === 0) {
+          filteredResults = searchResults.filter(
+            (result) =>
+              result.title.toLowerCase().includes(queryLower) ||
+              result.summary.toLowerCase().includes(queryLower),
+          );
+
+          // If still no matches, show all results as fallback
+          if (filteredResults.length === 0) {
+            console.log(
+              "No specific matches found, showing all available results",
+            );
+            filteredResults = searchResults;
+          }
+        }
+
+        setSearchResults(filteredResults);
         setIsSearching(false);
       }, 1500);
     }

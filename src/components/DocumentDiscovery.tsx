@@ -179,6 +179,37 @@ const DocumentDiscovery: React.FC<DocumentDiscoveryProps> = ({
           else if (newProgress === 100) {
             clearInterval(interval);
             currentStep = "Discovery completed";
+
+            // Add mock discovered documents
+            const mockDiscoveredDocs = [
+              {
+                id: "discovered-1",
+                title: "BGP Configuration Guide - Discovered",
+                source: "cisco.com",
+                type: "PDF",
+                size: "2.4 MB",
+                relevance: 0.95,
+                downloadStatus: "completed" as const,
+                downloadProgress: 100,
+                url: "https://cisco.com/bgp-guide.pdf",
+                summary:
+                  "Comprehensive BGP configuration guide discovered through web search.",
+              },
+              {
+                id: "discovered-2",
+                title: "OSPF Implementation Guide - Discovered",
+                source: "ciscopress.com",
+                type: "PDF",
+                size: "1.8 MB",
+                relevance: 0.87,
+                downloadStatus: "completed" as const,
+                downloadProgress: 100,
+                url: "https://ciscopress.com/ospf-guide.pdf",
+                summary:
+                  "OSPF implementation best practices discovered through web search.",
+              },
+            ];
+            setAiResults(mockDiscoveredDocs);
           }
 
           return {

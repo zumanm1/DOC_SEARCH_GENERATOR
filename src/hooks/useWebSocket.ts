@@ -28,11 +28,19 @@ export const useWebSocket = (clientId: string = "default") => {
 
   const connect = useCallback(() => {
     try {
-      const wsUrl = `ws://localhost:8000/ws/${clientId}`;
+      // Check if we're in development or production environment
+      const host = window.location.hostname;
+      const port = "8000";
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+      // Use the current host in production, localhost in development
+      const wsUrl = `${protocol}//${host === "localhost" ? host : host.split(":")[0]}:${port}/ws/${clientId}`;
+      console.log(`Attempting to connect to WebSocket at: ${wsUrl}`);
+
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log("WebSocket connected");
+        console.log("WebSocket connected to backend");
         setIsConnected(true);
         setError(null);
       };
@@ -52,26 +60,35 @@ export const useWebSocket = (clientId: string = "default") => {
         }
       };
 
-      ws.onclose = () => {
-        console.log("WebSocket disconnected");
+      ws.onclose = (event) => {
+        console.log("WebSocket disconnected:", event.code, event.reason);
         setIsConnected(false);
         setSocket(null);
 
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
+        // Only attempt to reconnect if it wasn't a manual close
+        if (event.code !== 1000) {
+          setError("Backend server disconnected. Attempting to reconnect...");
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, 5000); // Increased timeout to 5 seconds
+        }
       };
 
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        setError("WebSocket connection error");
+        console.error("WebSocket connection error:", error);
+        setError(
+          "Cannot connect to backend server. Please ensure the Python backend is running on localhost:8000",
+        );
+        setIsConnected(false);
       };
 
       setSocket(ws);
     } catch (err) {
       console.error("Error creating WebSocket connection:", err);
-      setError("Failed to create WebSocket connection");
+      setError(
+        "Failed to create WebSocket connection. Backend server may not be running.",
+      );
+      setIsConnected(false);
     }
   }, [clientId]);
 

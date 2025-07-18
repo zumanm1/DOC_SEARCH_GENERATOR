@@ -105,6 +105,78 @@ const AIAgent: React.FC<AIAgentProps> = ({
       setError(
         "Backend server not available. Please ensure the Python backend is running on localhost:8000",
       );
+
+      // Generate more relevant mock results based on the query
+      const queryLower = query.toLowerCase();
+      const mockResults = [];
+
+      // Add BGP-related mock results if query contains BGP
+      if (queryLower.includes("bgp")) {
+        mockResults.push({
+          id: "mock-bgp-1",
+          title: "BGP Configuration Guide - Mock Result",
+          url: "https://cisco.com/bgp-guide",
+          source: "cisco.com",
+          type: "PDF",
+          size: "2.4 MB",
+          relevance: 0.95,
+          summary:
+            "Mock result: Comprehensive BGP configuration guide with examples and troubleshooting tips for Cisco IOS devices.",
+        });
+        mockResults.push({
+          id: "mock-bgp-2",
+          title: "BGP Troubleshooting and Best Practices - Mock Result",
+          url: "https://ciscopress.com/bgp-troubleshooting",
+          source: "ciscopress.com",
+          type: "PDF",
+          size: "3.1 MB",
+          relevance: 0.92,
+          summary:
+            "Mock result: Advanced BGP troubleshooting techniques and best practices for enterprise and service provider networks.",
+        });
+      }
+
+      // Add OSPF-related mock results if query contains OSPF
+      if (queryLower.includes("ospf")) {
+        mockResults.push({
+          id: "mock-ospf-1",
+          title: "OSPF Implementation Best Practices - Mock Result",
+          url: "https://ciscopress.com/ospf-practices",
+          source: "ciscopress.com",
+          type: "PDF",
+          size: "1.8 MB",
+          relevance: 0.87,
+          summary:
+            "Mock result: Best practices for OSPF implementation in enterprise networks.",
+        });
+      }
+
+      // Add general networking mock results if no specific protocol is mentioned
+      if (mockResults.length === 0) {
+        mockResults.push({
+          id: "mock-general-1",
+          title: `${query} - Cisco Documentation - Mock Result`,
+          url: `https://cisco.com/docs/${queryLower.replace(/\s+/g, "-")}`,
+          source: "cisco.com",
+          type: "PDF",
+          size: "2.0 MB",
+          relevance: 0.85,
+          summary: `Mock result: Documentation related to ${query} for Cisco networking devices and software.`,
+        });
+        mockResults.push({
+          id: "mock-general-2",
+          title: `Cisco IOS Configuration Guide for ${query} - Mock Result`,
+          url: `https://ciscopress.com/ios-config/${queryLower.replace(/\s+/g, "-")}`,
+          source: "ciscopress.com",
+          type: "PDF",
+          size: "2.5 MB",
+          relevance: 0.8,
+          summary: `Mock result: Configuration examples and guidelines for ${query} on Cisco IOS platforms.`,
+        });
+      }
+
+      setResults(mockResults);
+      onResults(mockResults);
       return;
     }
 
@@ -287,15 +359,23 @@ const AIAgent: React.FC<AIAgentProps> = ({
                   <br />
                   4. Ensure it's running on localhost:8000
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={connect}
-                  className="mt-2"
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Retry Connection
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={connect}>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Retry Connection
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      // Run the agent with mock results anyway
+                      runAgent();
+                    }}
+                  >
+                    <Search className="h-3 w-3 mr-1" />
+                    Use Mock Results
+                  </Button>
+                </div>
               </AlertDescription>
             </Alert>
           )}
