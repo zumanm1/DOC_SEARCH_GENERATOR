@@ -38,7 +38,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # React dev servers
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],  # React dev servers and any origin for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -113,6 +113,8 @@ async def handle_websocket_message(client_id: str, message: Dict[str, Any]):
             await handle_document_search(client_id, data)
         elif action == "ai_agent":
             await handle_ai_agent(client_id, data)
+        elif action == "download_document":
+            await handle_document_download(client_id, data)
         elif action == "pipeline_stage1":
             await handle_pipeline_stage1(client_id, data)
         elif action == "pipeline_stage2":
@@ -121,6 +123,8 @@ async def handle_websocket_message(client_id: str, message: Dict[str, Any]):
             await handle_system_config(client_id, data)
         elif action == "get_status":
             await handle_get_status(client_id, data)
+        elif action == "test_llm_connection":
+            await handle_test_llm_connection(client_id, data)
         else:
             await websocket_manager.send_error(client_id, f"Unknown action: {action}")
             
@@ -198,6 +202,71 @@ async def handle_ai_agent(client_id: str, data: Dict[str, Any]):
             
     except Exception as e:
         await websocket_manager.send_error(client_id, f"AI Agent error: {str(e)}")
+        
+# Handle document download requests
+async def handle_document_download(client_id: str, data: Dict[str, Any]):
+    """Handle document download requests"""
+    try:
+        document_id = data.get("document_id")
+        document = data.get("document")
+        
+        if not document_id or not document:
+            raise ValueError("Missing document_id or document data")
+            
+        # Send initial status
+        await websocket_manager.send_message(client_id, {
+            "type": "document_download_update",
+            "document_id": document_id,
+            "status": "downloading",
+            "progress": 0
+        })
+        
+        # Process download through AI agent service
+        result = await ai_agent.download_document(document_id, document)
+        
+        # Send final status
+        await websocket_manager.send_message(client_id, {
+            "type": "document_download_update",
+            "document_id": document_id,
+            "status": "completed",
+            "progress": 100,
+            "result": result
+        })
+        
+    except Exception as e:
+        await websocket_manager.send_message(client_id, {
+            "type": "document_download_update",
+            "document_id": data.get("document_id"),
+            "status": "failed",
+            "error": str(e)
+        })
+        
+# Handle LLM test connection requests
+async def handle_test_llm_connection(client_id: str, data: Dict[str, Any]):
+    """Handle LLM test connection requests"""
+    try:
+        provider = data.get("provider", "groq")
+        questions = data.get("questions", [])
+        
+        if not questions:
+            questions = [
+                "What is the capital city of France?",
+                "What is 2 + 2?",
+                "Name one planet in our solar system.",
+                "What color do you get when you mix red and blue?"
+            ]
+            
+        # Run test through system config service
+        results = await system_config.test_llm_connection(provider)
+        
+        # Send results
+        await websocket_manager.send_message(client_id, {
+            "type": "llm_test_results",
+            "results": results.get("results", [])
+        })
+        
+    except Exception as e:
+        await websocket_manager.send_error(client_id, f"LLM test error: {str(e)}")
 
 async def handle_pipeline_stage1(client_id: str, data: Dict[str, Any]):
     """Handle pipeline stage 1 (document discovery)"""
@@ -233,12 +302,35 @@ async def handle_pipeline_stage2(client_id: str, data: Dict[str, Any]):
 async def handle_system_config(client_id: str, data: Dict[str, Any]):
     """Handle system configuration requests"""
     try:
-        result = await system_config.update_config(
-            database_type=data.get("database_type"),
-            operation_mode=data.get("operation_mode"),
-            api_keys=data.get("api_keys", {}),
-            llm_config=data.get("llm_config", {})
-        )
+        request_type = data.get("request")
+        
+        if request_type == "update_config":
+            result = await system_config.update_config(
+                database_type=data.get("database_type"),
+                operation_mode=data.get("operation_mode"),
+                api_keys=data.get("api_keys", {}),
+                llm_config=data.get("llm_config", {})
+            )
+            
+        elif request_type == "get_api_keys":
+            result = await system_config.get_api_keys()
+            
+        elif request_type == "save_api_key":
+            result = await system_config.save_api_key(data.get("key_data", {}))
+            
+        elif request_type == "delete_api_key":
+            result = await system_config.delete_api_key(data.get("key_id"))
+            
+        elif request_type == "set_active_api_key":
+            result = await system_config.set_active_api_key(data.get("key_id"))
+            
+        else:
+            result = await system_config.update_config(
+                database_type=data.get("database_type"),
+                operation_mode=data.get("operation_mode"),
+                api_keys=data.get("api_keys", {}),
+                llm_config=data.get("llm_config", {})
+            )
         
         await websocket_manager.send_message(client_id, {
             "type": "config_updated",

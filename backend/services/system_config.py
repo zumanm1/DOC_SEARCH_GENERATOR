@@ -111,6 +111,96 @@ class SystemConfigService:
         # Store API keys securely (in production, use proper encryption)
         for key_name, key_value in api_keys.items():
             self.config["api_keys"][key_name] = key_value
+            
+    async def save_api_key(self, key_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Save or update a Groq API key"""
+        if not self.config["llm_config"].get("groq_keys"):
+            self.config["llm_config"]["groq_keys"] = []
+            
+        # Generate ID if new key
+        if not key_data.get("id"):
+            import uuid
+            key_data["id"] = str(uuid.uuid4())
+            key_data["createdAt"] = datetime.now().isoformat()
+            
+        # If setting as active, deactivate all others
+        if key_data.get("active"):
+            for key in self.config["llm_config"]["groq_keys"]:
+                key["active"] = False
+                
+        # Check if key exists and update it
+        key_exists = False
+        for i, key in enumerate(self.config["llm_config"]["groq_keys"]):
+            if key.get("id") == key_data.get("id"):
+                self.config["llm_config"]["groq_keys"][i] = key_data
+                key_exists = True
+                break
+                
+        # Add new key if it doesn't exist
+        if not key_exists:
+            self.config["llm_config"]["groq_keys"].append(key_data)
+            
+        # Save configuration
+        await self._save_config()
+        
+        return {
+            "status": "success",
+            "message": "API key saved successfully",
+            "keys": self.config["llm_config"]["groq_keys"]
+        }
+        
+    async def delete_api_key(self, key_id: str) -> Dict[str, Any]:
+        """Delete a Groq API key"""
+        if not self.config["llm_config"].get("groq_keys"):
+            return {"status": "error", "message": "No API keys found"}
+            
+        # Remove key with matching ID
+        self.config["llm_config"]["groq_keys"] = [
+            key for key in self.config["llm_config"]["groq_keys"]
+            if key.get("id") != key_id
+        ]
+        
+        # Save configuration
+        await self._save_config()
+        
+        return {
+            "status": "success",
+            "message": "API key deleted successfully",
+            "keys": self.config["llm_config"]["groq_keys"]
+        }
+        
+    async def set_active_api_key(self, key_id: str) -> Dict[str, Any]:
+        """Set a Groq API key as active"""
+        if not self.config["llm_config"].get("groq_keys"):
+            return {"status": "error", "message": "No API keys found"}
+            
+        # Set active status
+        key_found = False
+        for key in self.config["llm_config"]["groq_keys"]:
+            if key.get("id") == key_id:
+                key["active"] = True
+                key_found = True
+            else:
+                key["active"] = False
+                
+        if not key_found:
+            return {"status": "error", "message": "API key not found"}
+            
+        # Save configuration
+        await self._save_config()
+        
+        return {
+            "status": "success",
+            "message": "API key set as active",
+            "keys": self.config["llm_config"]["groq_keys"]
+        }
+        
+    async def get_api_keys(self) -> Dict[str, Any]:
+        """Get all Groq API keys"""
+        return {
+            "status": "success",
+            "keys": self.config["llm_config"].get("groq_keys", [])
+        }
     
     async def _configure_llm(self, llm_config: Dict[str, Any]):
         """Configure LLM settings"""

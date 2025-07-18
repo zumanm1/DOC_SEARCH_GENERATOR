@@ -50,7 +50,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { groqClient } from "@/lib/groq-client";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface SystemConfigurationProps {
   onSave?: (config: any) => void;
@@ -80,13 +80,22 @@ const SystemConfiguration = ({
     initialConfig.groqApiKeys || [],
   );
 
+  // Use WebSocket to get saved API keys
+  const { sendMessage, onMessage, isConnected } = useWebSocket(
+    `system-config-${Date.now()}`,
+  );
+
   // Load saved API keys on component mount
   React.useEffect(() => {
-    const savedKeys = groqClient.getSavedApiKeys();
-    if (savedKeys.length > 0) {
-      setGroqApiKeys(savedKeys);
+    if (isConnected) {
+      sendMessage({
+        action: "system_config",
+        data: {
+          request: "get_api_keys",
+        },
+      });
     }
-  }, []);
+  }, [isConnected, sendMessage]);
   const [ollamaConfig, setOllamaConfig] = useState(
     initialConfig.ollamaConfig || {
       endpoint: "http://localhost:11434",
@@ -121,158 +130,84 @@ const SystemConfiguration = ({
     setTestResults([]);
     setCurrentTestIndex(0);
 
-    const results = [];
+    // Send test request to backend via WebSocket
+    sendMessage({
+      action: "test_llm_connection",
+      data: {
+        provider: llmProvider,
+        questions: testQuestions,
+      },
+    });
+  };
 
-    for (let i = 0; i < testQuestions.length; i++) {
-      setCurrentTestIndex(i);
-      const question = testQuestions[i];
+  // Handle WebSocket responses for LLM testing
+  React.useEffect(() => {
+    const removeTestResultsListener = onMessage("llm_test_results", (data) => {
+      if (data.results) {
+        setTestResults(data.results);
+        setTestingInProgress(false);
+      }
+    });
 
-      try {
-        let response;
-
-        if (llmProvider === "groq") {
-          // Simulate Groq API call
-          response = await simulateGroqCall(question);
-        } else {
-          // Simulate Ollama API call
-          response = await simulateOllamaCall(question);
+    const removeTestProgressListener = onMessage(
+      "llm_test_progress",
+      (data) => {
+        if (data.current_index !== undefined) {
+          setCurrentTestIndex(data.current_index);
         }
-
-        results.push({
-          question,
-          response,
-          status: "success",
-          timestamp: new Date().toLocaleTimeString(),
-        });
-      } catch (error) {
-        results.push({
-          question,
-          response: `Error: ${error.message}`,
-          status: "error",
-          timestamp: new Date().toLocaleTimeString(),
-        });
-      }
-
-      // Small delay between requests
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-
-    setTestResults(results);
-    setTestingInProgress(false);
-  };
-
-  const simulateGroqCall = async (question) => {
-    try {
-      // Use real Groq API if configured
-      if (groqClient.isConfigured()) {
-        const response = await groqClient.chat([
-          { role: "user", content: question },
-        ]);
-        return response;
-      } else {
-        throw new Error("Groq API not configured");
-      }
-    } catch (error) {
-      console.error("Groq API call failed:", error);
-      // Fallback to simulated response
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const responses = {
-        "What is the capital city of France?":
-          "The capital city of France is Paris.",
-        "What is 2 + 2?": "2 + 2 equals 4.",
-        "Name one planet in our solar system.":
-          "Earth is a planet in our solar system.",
-        "What color do you get when you mix red and blue?":
-          "When you mix red and blue, you get purple.",
-      };
-
-      return (
-        responses[question] ||
-        "I understand your question and I'm processing it through the Groq API."
-      );
-    }
-  };
-
-  const simulateOllamaCall = async (question) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Simulate responses based on questions
-    const responses = {
-      "What is the capital city of France?":
-        "Paris is the capital and largest city of France.",
-      "What is 2 + 2?": "The answer to 2 + 2 is 4.",
-      "Name one planet in our solar system.":
-        "Mars is one of the planets in our solar system.",
-      "What color do you get when you mix red and blue?":
-        "Mixing red and blue creates purple.",
-    };
-
-    return (
-      responses[question] ||
-      "I'm processing your question through the local Ollama instance."
+      },
     );
-  };
+
+    return () => {
+      removeTestResultsListener();
+      removeTestProgressListener();
+    };
+  }, [onMessage]);
 
   // Simulate real-time resource monitoring
+  // Get system resources from backend
   React.useEffect(() => {
-    const interval = setInterval(() => {
-      setSystemResources((prev) => ({
-        cpu: {
-          usage: Math.max(
-            10,
-            Math.min(95, prev.cpu.usage + (Math.random() - 0.5) * 10),
-          ),
-          temperature: Math.max(
-            35,
-            Math.min(85, prev.cpu.temperature + (Math.random() - 0.5) * 5),
-          ),
-        },
-        ram: {
-          ...prev.ram,
-          used: Math.max(
-            2,
-            Math.min(
-              prev.ram.total - 1,
-              prev.ram.used + (Math.random() - 0.5) * 0.5,
-            ),
-          ),
-          percentage: Math.max(
-            12.5,
-            Math.min(93.75, prev.ram.percentage + (Math.random() - 0.5) * 3),
-          ),
-        },
-        gpu: {
-          ...prev.gpu,
-          usage: Math.max(
-            5,
-            Math.min(100, prev.gpu.usage + (Math.random() - 0.5) * 15),
-          ),
-          temperature: Math.max(
-            40,
-            Math.min(90, prev.gpu.temperature + (Math.random() - 0.5) * 8),
-          ),
-        },
-        vram: {
-          ...prev.vram,
-          used: Math.max(
-            1,
-            Math.min(
-              prev.vram.total - 0.5,
-              prev.vram.used + (Math.random() - 0.5) * 0.8,
-            ),
-          ),
-          percentage: Math.max(
-            8.3,
-            Math.min(95.8, prev.vram.percentage + (Math.random() - 0.5) * 5),
-          ),
-        },
-      }));
-    }, 2000);
+    if (isConnected) {
+      // Initial request for system resources
+      sendMessage({
+        action: "get_status",
+        data: {},
+      });
 
-    return () => clearInterval(interval);
-  }, []);
+      // Set up interval to request updates
+      const interval = setInterval(() => {
+        sendMessage({
+          action: "get_status",
+          data: {},
+        });
+      }, 5000);
+
+      // Handle system status updates
+      const removeStatusListener = onMessage("system_status", (data) => {
+        if (data.status && data.status.resources) {
+          setSystemResources(data.status.resources);
+        }
+      });
+
+      // Handle API keys updates
+      const removeApiKeysListener = onMessage("config_updated", (data) => {
+        if (
+          data.result &&
+          data.result.config &&
+          data.result.config.llm_config &&
+          data.result.config.llm_config.groq_keys
+        ) {
+          setGroqApiKeys(data.result.config.llm_config.groq_keys);
+        }
+      });
+
+      return () => {
+        clearInterval(interval);
+        removeStatusListener();
+        removeApiKeysListener();
+      };
+    }
+  }, [isConnected, sendMessage, onMessage]);
 
   return (
     <div className="w-full h-full p-6 bg-background">
@@ -826,15 +761,18 @@ const SystemConfiguration = ({
                     placeholder="Enter your Groq API key (gsk_...)"
                     onChange={(e) => {
                       if (e.target.value.trim()) {
-                        groqClient.setApiKey(e.target.value.trim());
-                        // Save the key automatically
-                        groqClient.saveApiKey(
-                          "Quick Setup Key",
-                          e.target.value.trim(),
-                          true,
-                        );
-                        // Refresh the keys list
-                        setGroqApiKeys(groqClient.getSavedApiKeys());
+                        // Save API key via WebSocket
+                        sendMessage({
+                          action: "system_config",
+                          data: {
+                            request: "save_api_key",
+                            key_data: {
+                              name: "Quick Setup Key",
+                              key: e.target.value.trim(),
+                              active: true,
+                            },
+                          },
+                        });
                       }
                     }}
                   />
@@ -1031,12 +969,13 @@ const SystemConfiguration = ({
                               size="sm"
                               variant="ghost"
                               onClick={() => {
-                                groqClient.saveApiKey(
-                                  apiKey.name,
-                                  apiKey.key,
-                                  true,
-                                );
-                                setGroqApiKeys(groqClient.getSavedApiKeys());
+                                sendMessage({
+                                  action: "system_config",
+                                  data: {
+                                    request: "set_active_api_key",
+                                    key_id: apiKey.id,
+                                  },
+                                });
                               }}
                               title="Set as active"
                             >
@@ -1058,8 +997,13 @@ const SystemConfiguration = ({
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              groqClient.deleteSavedApiKey(apiKey.id);
-                              setGroqApiKeys(groqClient.getSavedApiKeys());
+                              sendMessage({
+                                action: "system_config",
+                                data: {
+                                  request: "delete_api_key",
+                                  key_id: apiKey.id,
+                                },
+                              });
                             }}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1106,29 +1050,28 @@ const SystemConfiguration = ({
                           <Button
                             size="sm"
                             onClick={() => {
-                              if (editingKey === "new") {
-                                // Save new key
-                                groqClient.saveApiKey(
-                                  newKeyName,
-                                  newKeyValue,
-                                  true,
-                                );
-                              } else {
-                                // Update existing key
-                                const existingKey = groqApiKeys.find(
-                                  (k) => k.id === editingKey,
-                                );
-                                if (existingKey) {
-                                  groqClient.deleteSavedApiKey(editingKey);
-                                  groqClient.saveApiKey(
-                                    newKeyName,
-                                    newKeyValue,
-                                    existingKey.active,
-                                  );
-                                }
-                              }
-                              // Refresh the keys list
-                              setGroqApiKeys(groqClient.getSavedApiKeys());
+                              // Save API key via WebSocket
+                              sendMessage({
+                                action: "system_config",
+                                data: {
+                                  request: "save_api_key",
+                                  key_data: {
+                                    id:
+                                      editingKey === "new"
+                                        ? undefined
+                                        : editingKey,
+                                    name: newKeyName,
+                                    key: newKeyValue,
+                                    active:
+                                      editingKey === "new"
+                                        ? true
+                                        : groqApiKeys.find(
+                                            (k) => k.id === editingKey,
+                                          )?.active || false,
+                                  },
+                                },
+                              });
+
                               setEditingKey(null);
                               setNewKeyName("");
                               setNewKeyValue("");

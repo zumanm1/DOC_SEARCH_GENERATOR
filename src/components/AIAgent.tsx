@@ -20,8 +20,7 @@ import {
   AlertCircle,
   FileText,
 } from "lucide-react";
-import { groqClient } from "@/lib/groq-client";
-import { webSearchService } from "@/lib/web-search";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import DocumentViewer from "@/components/DocumentViewer";
 
 interface AIAgentProps {
@@ -82,6 +81,9 @@ const AIAgent: React.FC<AIAgentProps> = ({
   const [results, setResults] = useState<any[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { sendMessage, onMessage, isConnected } = useWebSocket(
+    `ai-agent-${Date.now()}`,
+  );
 
   const updateStep = (stepId: string, updates: Partial<AgentStep>) => {
     setSteps((prev) =>
@@ -95,139 +97,34 @@ const AIAgent: React.FC<AIAgentProps> = ({
       return;
     }
 
-    // Check if either Ollama or Groq is available
-    const isOllamaAvailable = await groqClient.checkOllamaAvailability();
-    const isGroqConfigured = groqClient.isConfigured();
-
-    if (!isOllamaAvailable && !isGroqConfigured) {
-      setError(
-        "Neither Ollama nor Groq are available. Please configure at least one LLM provider in System Configuration.",
-      );
+    if (!isConnected) {
+      setError("Not connected to backend. Please try again later.");
       return;
     }
-
-    // Set preference for Ollama (GPU acceleration)
-    groqClient.setPreferOllama(true);
 
     setIsRunning(true);
     setError(null);
     setResults([]);
 
     try {
-      // Step 1: Initialize
+      // Initialize steps
       setCurrentStep("Initializing AI Agent...");
       updateStep("init", { status: "running", progress: 50 });
-      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Send request to backend via WebSocket
+      sendMessage({
+        action: "ai_agent",
+        data: {
+          query,
+          certification_level: certificationLevel,
+          max_documents: maxDocuments,
+        },
+      });
+
+      // Complete initialization step
       updateStep("init", { status: "completed", progress: 100 });
       setOverallProgress(20);
       onProgress({ step: "Initialized", percentage: 20 });
-
-      // Step 2: Generate search queries (with enhanced diversity)
-      setCurrentStep("Generating optimized search queries with AI...");
-      updateStep("generate", { status: "running", progress: 30 });
-
-      const searchQueries = await groqClient.generateSearchQueries(
-        query,
-        certificationLevel,
-      );
-      updateStep("generate", {
-        status: "completed",
-        progress: 100,
-        details: `Generated ${searchQueries.length} diverse queries`,
-      });
-      setOverallProgress(40);
-      onProgress({ step: "Generated enhanced search queries", percentage: 40 });
-
-      // Step 3: Search web sources (avoiding duplicates)
-      setCurrentStep("Searching web sources for new documents...");
-      updateStep("search", { status: "running", progress: 20 });
-
-      const allSearchResults = [];
-      for (let i = 0; i < searchQueries.length; i++) {
-        const searchResults = await webSearchService.searchWeb(
-          searchQueries[i],
-          8, // Increased to find more documents
-        );
-        allSearchResults.push(...searchResults);
-        updateStep("search", {
-          status: "running",
-          progress: ((i + 1) / searchQueries.length) * 100,
-          details: `Searched ${i + 1}/${searchQueries.length} queries - Found ${allSearchResults.length} total`,
-        });
-      }
-
-      // Remove duplicates and filter out already downloaded documents
-      const uniqueResults = allSearchResults.filter((result, index, self) => {
-        const isDuplicate =
-          self.findIndex((r) => r.url === result.url) !== index;
-        return !isDuplicate;
-      });
-
-      updateStep("search", {
-        status: "completed",
-        progress: 100,
-        details: `Found ${uniqueResults.length} unique new documents`,
-      });
-      setOverallProgress(60);
-      onProgress({ step: "Found new unique documents", percentage: 60 });
-
-      // Step 4: Refine with AI (enhanced for RAG accuracy)
-      setCurrentStep("Refining results with AI for optimal RAG training...");
-      updateStep("refine", { status: "running", progress: 30 });
-
-      const documents = await webSearchService.convertToDocuments(
-        uniqueResults,
-        query,
-      );
-      const refinedResults = await groqClient.refineSearchResults(
-        query,
-        documents,
-      );
-      const topResults = refinedResults.slice(
-        0,
-        Math.min(maxDocuments * 2, 12),
-      ); // Get more high-quality results
-
-      updateStep("refine", {
-        status: "completed",
-        progress: 100,
-        details: `Refined to ${topResults.length} high-quality documents for RAG training`,
-      });
-      setOverallProgress(80);
-      onProgress({ step: "Optimized for RAG accuracy", percentage: 80 });
-
-      // Step 5: Prepare downloads (filter out duplicates)
-      setCurrentStep("Preparing new documents for download...");
-      updateStep("download", { status: "running", progress: 50 });
-
-      // Filter out already downloaded documents
-      const newResults = [];
-      for (const result of topResults) {
-        const isAlreadyDownloaded = webSearchService.isDocumentAlreadyDownloaded
-          ? await webSearchService.isDocumentAlreadyDownloaded(result)
-          : false;
-        if (!isAlreadyDownloaded) {
-          newResults.push({
-            ...result,
-            downloadStatus: "pending",
-            isNew: true,
-          });
-        }
-      }
-
-      updateStep("download", {
-        status: "completed",
-        progress: 100,
-        details: `${newResults.length} new documents ready (${topResults.length - newResults.length} already exist)`,
-      });
-      setOverallProgress(100);
-      onProgress({ step: "Ready for Stage 2 processing", percentage: 100 });
-
-      setResults(newResults);
-      onResults(newResults);
-      setCurrentStep(
-        `AI Agent completed: ${newResults.length} new documents found for enhanced RAG training`,
-      );
     } catch (error) {
       console.error("AI Agent error:", error);
       setError(
@@ -239,7 +136,6 @@ const AIAgent: React.FC<AIAgentProps> = ({
       if (currentStepId) {
         updateStep(currentStepId, { status: "failed", details: "Step failed" });
       }
-    } finally {
       setIsRunning(false);
     }
   };
@@ -254,39 +150,16 @@ const AIAgent: React.FC<AIAgentProps> = ({
         ),
       );
 
-      // Simulate download progress
-      const progressInterval = setInterval(() => {
-        setResults((prev) =>
-          prev.map((doc) => {
-            if (
-              doc.id === document.id &&
-              doc.downloadStatus === "downloading"
-            ) {
-              const newProgress = Math.min(
-                (doc.downloadProgress || 0) + 10,
-                90,
-              );
-              return { ...doc, downloadProgress: newProgress };
-            }
-            return doc;
-          }),
-        );
-      }, 200);
+      // Send download request to backend via WebSocket
+      sendMessage({
+        action: "download_document",
+        data: {
+          document_id: document.id,
+          document: document,
+        },
+      });
 
-      const success = await webSearchService.downloadDocument(document);
-      clearInterval(progressInterval);
-
-      setResults((prev) =>
-        prev.map((doc) =>
-          doc.id === document.id
-            ? {
-                ...doc,
-                downloadStatus: success ? "completed" : "failed",
-                downloadProgress: success ? 100 : 0,
-              }
-            : doc,
-        ),
-      );
+      // Progress updates will come from the backend via WebSocket
     } catch (error) {
       console.error("Download error:", error);
       setResults((prev) =>
@@ -314,11 +187,58 @@ const AIAgent: React.FC<AIAgentProps> = ({
     }
   };
 
+  // Handle WebSocket messages
   useEffect(() => {
+    // Handle AI agent updates
+    const removeAIAgentListener = onMessage("ai_agent_update", (data) => {
+      setSteps(data.steps || steps);
+      setOverallProgress(data.overallProgress || overallProgress);
+      setCurrentStep(data.currentStep || currentStep);
+
+      if (data.results) {
+        setResults(data.results);
+        onResults(data.results);
+      }
+
+      if (data.status === "completed" || data.status === "error") {
+        setIsRunning(false);
+        if (data.error) {
+          setError(data.error);
+        }
+      }
+    });
+
+    // Handle document download updates
+    const removeDownloadListener = onMessage(
+      "document_download_update",
+      (data) => {
+        if (data.document_id && data.status) {
+          setResults((prev) =>
+            prev.map((doc) =>
+              doc.id === data.document_id
+                ? {
+                    ...doc,
+                    downloadStatus: data.status,
+                    downloadProgress: data.progress || doc.downloadProgress,
+                  }
+                : doc,
+            ),
+          );
+        }
+      },
+    );
+
+    // Start agent if active
     if (isActive && query && !isRunning) {
       runAgent();
     }
-  }, [isActive, query]);
+
+    // Cleanup listeners
+    return () => {
+      removeAIAgentListener();
+      removeDownloadListener();
+    };
+  }, [isActive, query, isRunning, onMessage]);
 
   return (
     <div className="w-full space-y-4 bg-background">
