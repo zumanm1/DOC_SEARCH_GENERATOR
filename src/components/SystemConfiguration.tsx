@@ -162,6 +162,21 @@ const SystemConfiguration = ({
     gpu: { usage: 78, temperature: 71, model: "NVIDIA RTX 4080" },
     vram: { used: 8.5, total: 12, percentage: 70.8 },
   });
+  const [systemStatus, setSystemStatus] = useState({
+    backend_connectivity: "healthy",
+    database_status: "connected",
+    api_availability: "online",
+    active_tasks: [],
+    error_logs: [],
+    performance_metrics: {
+      search_avg_time: 1.2,
+      discovery_success_rate: 94.5,
+      document_processing_rate: 15.3,
+    },
+  });
+  const [documentVersions, setDocumentVersions] = useState([]);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [savedSearches, setSavedSearches] = useState([]);
 
   const testQuestions = [
     "What is the capital city of France?",
@@ -245,7 +260,7 @@ const SystemConfiguration = ({
         onValueChange={setActiveTab}
         className="w-full"
       >
-        <TabsList className="grid grid-cols-4 w-full max-w-3xl mb-6">
+        <TabsList className="grid grid-cols-7 w-full max-w-6xl mb-6">
           <TabsTrigger value="database" className="flex items-center gap-2">
             <Database className="h-4 w-4" /> Database
           </TabsTrigger>
@@ -257,6 +272,15 @@ const SystemConfiguration = ({
           </TabsTrigger>
           <TabsTrigger value="llm" className="flex items-center gap-2">
             <Bot className="h-4 w-4" /> LLM/AI Agents
+          </TabsTrigger>
+          <TabsTrigger value="monitoring" className="flex items-center gap-2">
+            <Monitor className="h-4 w-4" /> Real-time Monitoring
+          </TabsTrigger>
+          <TabsTrigger value="versions" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" /> Document Versions
+          </TabsTrigger>
+          <TabsTrigger value="search" className="flex items-center gap-2">
+            <Search className="h-4 w-4" /> Advanced Search
           </TabsTrigger>
         </TabsList>
 
@@ -1461,6 +1485,589 @@ echo "Ollama setup complete!"`;
               automatically switch providers if one becomes unavailable.
             </AlertDescription>
           </Alert>
+        </TabsContent>
+
+        <TabsContent value="monitoring" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Real-time Status Dashboard</CardTitle>
+              <CardDescription>
+                Comprehensive monitoring of system health, active tasks, and
+                performance metrics.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* System Health Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Server className="h-5 w-5 text-green-500" />
+                    <span className="font-medium">Backend Connectivity</span>
+                  </div>
+                  <Badge
+                    variant={
+                      systemStatus.backend_connectivity === "healthy"
+                        ? "outline"
+                        : "destructive"
+                    }
+                    className={
+                      systemStatus.backend_connectivity === "healthy"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : ""
+                    }
+                  >
+                    {systemStatus.backend_connectivity === "healthy"
+                      ? "Healthy"
+                      : "Issues Detected"}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    WebSocket: {isConnected ? "Connected" : "Disconnected"}
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Database className="h-5 w-5 text-blue-500" />
+                    <span className="font-medium">Database Status</span>
+                  </div>
+                  <Badge
+                    variant={
+                      systemStatus.database_status === "connected"
+                        ? "outline"
+                        : "destructive"
+                    }
+                    className={
+                      systemStatus.database_status === "connected"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : ""
+                    }
+                  >
+                    {systemStatus.database_status === "connected"
+                      ? "Connected"
+                      : "Disconnected"}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Type: {databaseType.toUpperCase()}
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe className="h-5 w-5 text-purple-500" />
+                    <span className="font-medium">API Availability</span>
+                  </div>
+                  <Badge
+                    variant={
+                      systemStatus.api_availability === "online"
+                        ? "outline"
+                        : "destructive"
+                    }
+                    className={
+                      systemStatus.api_availability === "online"
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : ""
+                    }
+                  >
+                    {systemStatus.api_availability === "online"
+                      ? "Online"
+                      : "Offline"}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Groq API:{" "}
+                    {groqApiKeys.length > 0 ? "Configured" : "Not configured"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Active Tasks */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Active Tasks</h3>
+                {systemStatus.active_tasks.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                    No active tasks running
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {systemStatus.active_tasks.map((task, index) => (
+                      <div key={index} className="p-3 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{task.name}</span>
+                          <Badge variant="secondary">{task.status}</Badge>
+                        </div>
+                        <Progress value={task.progress} className="h-2 mb-1" />
+                        <p className="text-xs text-muted-foreground">
+                          {task.details}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Performance Metrics */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">
+                  Performance Metrics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Search className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium">
+                        Search Performance
+                      </span>
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {systemStatus.performance_metrics.search_avg_time}s
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Average response time
+                    </p>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Download className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium">
+                        Discovery Success
+                      </span>
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {systemStatus.performance_metrics.discovery_success_rate}%
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Success rate
+                    </p>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium">
+                        Processing Rate
+                      </span>
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {
+                        systemStatus.performance_metrics
+                          .document_processing_rate
+                      }
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Documents/hour
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Logs */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">
+                  Recent Error Logs
+                </h3>
+                {systemStatus.error_logs.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                    No recent errors
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {systemStatus.error_logs.map((error, index) => (
+                      <div
+                        key={index}
+                        className="p-3 border rounded-lg bg-red-50 border-red-200"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-medium text-red-800">
+                            {error.type}
+                          </span>
+                          <span className="text-xs text-red-600">
+                            {error.timestamp}
+                          </span>
+                        </div>
+                        <p className="text-sm text-red-700">{error.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="versions" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Version Control & Deduplication</CardTitle>
+              <CardDescription>
+                Manage document versions, track changes, and prevent duplicate
+                content storage.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Version Control Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">
+                  Version Control Settings
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="auto-update-check">
+                      Automatic Update Detection
+                    </Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch id="auto-update-check" defaultChecked />
+                      <Label htmlFor="auto-update-check" className="text-sm">
+                        Enable automatic checking for document updates
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="update-frequency">
+                      Update Check Frequency
+                    </Label>
+                    <Select defaultValue="daily">
+                      <SelectTrigger id="update-frequency">
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hourly">Every Hour</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="deduplication">Smart Deduplication</Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch id="deduplication" defaultChecked />
+                      <Label htmlFor="deduplication" className="text-sm">
+                        Prevent storing identical content
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="version-retention">Version Retention</Label>
+                    <Select defaultValue="5">
+                      <SelectTrigger id="version-retention">
+                        <SelectValue placeholder="Select retention" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3">Keep 3 versions</SelectItem>
+                        <SelectItem value="5">Keep 5 versions</SelectItem>
+                        <SelectItem value="10">Keep 10 versions</SelectItem>
+                        <SelectItem value="unlimited">
+                          Keep all versions
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Document Versions List */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Document Versions</h3>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      // Trigger version check via WebSocket
+                      sendMessage({
+                        action: "check_document_updates",
+                        data: {},
+                      });
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Check for Updates
+                  </Button>
+                </div>
+
+                {documentVersions.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                    No document versions tracked yet
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {documentVersions.map((doc, index) => (
+                      <div key={index} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-medium">{doc.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {doc.source}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                                doc.status === "updated"
+                                  ? "default"
+                                  : doc.status === "outdated"
+                                    ? "destructive"
+                                    : "outline"
+                              }
+                            >
+                              {doc.status === "updated"
+                                ? "Latest"
+                                : doc.status === "outdated"
+                                  ? "Update Available"
+                                  : "Current"}
+                            </Badge>
+                            {doc.hasUpdate && (
+                              <Button size="sm" variant="outline">
+                                Update
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-muted-foreground">
+                          <div>Version: {doc.version}</div>
+                          <div>Size: {doc.size}</div>
+                          <div>Modified: {doc.lastModified}</div>
+                          <div>Hash: {doc.contentHash?.substring(0, 8)}...</div>
+                        </div>
+
+                        {doc.changeLog && (
+                          <div className="mt-2 p-2 bg-muted rounded text-xs">
+                            <strong>Changes:</strong> {doc.changeLog}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="search" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced Search Configuration</CardTitle>
+              <CardDescription>
+                Configure advanced search filters, faceted navigation, and
+                search history management.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Search Filter Configuration */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">
+                  Search Filter Configuration
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label>Certification Level Filters</Label>
+                    <div className="space-y-2">
+                      {[
+                        "CCNA",
+                        "CCNP",
+                        "CCIE",
+                        "CCNA Security",
+                        "CCNP Security",
+                        "CCIE Security",
+                      ].map((cert) => (
+                        <div key={cert} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`cert-${cert}`}
+                            defaultChecked
+                            className="rounded"
+                          />
+                          <Label htmlFor={`cert-${cert}`} className="text-sm">
+                            {cert}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Technology Category Filters</Label>
+                    <div className="space-y-2">
+                      {[
+                        "Routing",
+                        "Switching",
+                        "Security",
+                        "Wireless",
+                        "Voice",
+                        "Data Center",
+                        "Service Provider",
+                        "Collaboration",
+                      ].map((tech) => (
+                        <div key={tech} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`tech-${tech}`}
+                            defaultChecked
+                            className="rounded"
+                          />
+                          <Label htmlFor={`tech-${tech}`} className="text-sm">
+                            {tech}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Document Type Filters</Label>
+                    <div className="space-y-2">
+                      {[
+                        "Configuration Guides",
+                        "Troubleshooting",
+                        "Best Practices",
+                        "Command Reference",
+                        "Installation Guides",
+                        "Release Notes",
+                      ].map((type) => (
+                        <div key={type} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`type-${type}`}
+                            defaultChecked
+                            className="rounded"
+                          />
+                          <Label htmlFor={`type-${type}`} className="text-sm">
+                            {type}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Advanced Options</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Switch id="auto-complete" defaultChecked />
+                        <Label htmlFor="auto-complete" className="text-sm">
+                          Enable auto-complete suggestions
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch id="search-history" defaultChecked />
+                        <Label htmlFor="search-history" className="text-sm">
+                          Save search history
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch id="faceted-nav" defaultChecked />
+                        <Label htmlFor="faceted-nav" className="text-sm">
+                          Enable faceted navigation
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search History */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Search History</h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSearchHistory([])}
+                  >
+                    Clear History
+                  </Button>
+                </div>
+
+                {searchHistory.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                    No search history available
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {searchHistory.map((search, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center p-2 border rounded"
+                      >
+                        <div>
+                          <span className="font-medium">{search.query}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {search.timestamp}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {search.results} results
+                          </Badge>
+                          <Button size="sm" variant="ghost">
+                            <Search className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Saved Searches */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold">Saved Searches</h3>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Save Current Search
+                  </Button>
+                </div>
+
+                {savedSearches.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                    No saved searches
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {savedSearches.map((search, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center p-3 border rounded-lg"
+                      >
+                        <div>
+                          <h4 className="font-medium">{search.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {search.query}
+                          </p>
+                          <div className="flex gap-1 mt-1">
+                            {search.filters.map((filter, i) => (
+                              <Badge
+                                key={i}
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                {filter}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline">
+                            <Search className="h-3 w-3 mr-1" />
+                            Run
+                          </Button>
+                          <Button size="sm" variant="ghost">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

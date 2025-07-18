@@ -251,6 +251,18 @@ class SystemConfigService:
                 "total": 128,
                 "indexed": 125,
                 "pending": 3
+            },
+            "monitoring": {
+                "backend_connectivity": "healthy",
+                "database_status": "connected",
+                "api_availability": "online",
+                "active_tasks": [],
+                "error_logs": [],
+                "performance_metrics": {
+                    "search_avg_time": 1.2,
+                    "discovery_success_rate": 94.5,
+                    "document_processing_rate": 15.3
+                }
             }
         }
     
@@ -318,6 +330,171 @@ class SystemConfigService:
             "success_rate": len([r for r in results if r["status"] == "success"]) / len(results),
             "timestamp": datetime.now().isoformat()
         }
+    
+    async def check_document_updates(self) -> Dict[str, Any]:
+        """Check for document updates from sources"""
+        logger.info("Checking for document updates")
+        
+        # Simulate checking for updates
+        await asyncio.sleep(2)
+        
+        # Mock document versions with updates
+        document_versions = [
+            {
+                "id": "doc_1",
+                "title": "BGP Configuration Guide",
+                "source": "cisco.com",
+                "version": "2.1",
+                "size": "2.4 MB",
+                "lastModified": "2024-01-15",
+                "contentHash": "a1b2c3d4e5f6",
+                "status": "current",
+                "hasUpdate": False
+            },
+            {
+                "id": "doc_2",
+                "title": "OSPF Troubleshooting Manual",
+                "source": "ciscopress.com",
+                "version": "1.8",
+                "size": "1.9 MB",
+                "lastModified": "2023-12-20",
+                "contentHash": "b2c3d4e5f6g7",
+                "status": "outdated",
+                "hasUpdate": True,
+                "changeLog": "Added new troubleshooting scenarios for OSPF v3"
+            },
+            {
+                "id": "doc_3",
+                "title": "ASR 1000 Series Configuration",
+                "source": "cisco.com",
+                "version": "3.0",
+                "size": "3.2 MB",
+                "lastModified": "2024-01-20",
+                "contentHash": "c3d4e5f6g7h8",
+                "status": "updated",
+                "hasUpdate": False,
+                "changeLog": "Updated for latest IOS XE version"
+            }
+        ]
+        
+        return {
+            "status": "success",
+            "message": "Document update check completed",
+            "document_versions": document_versions,
+            "updates_available": len([d for d in document_versions if d["hasUpdate"]]),
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def get_search_history(self) -> Dict[str, Any]:
+        """Get search history"""
+        # Mock search history
+        search_history = [
+            {
+                "query": "BGP configuration examples",
+                "timestamp": "2024-01-20 14:30",
+                "results": 12,
+                "filters": ["CCNP", "Configuration"]
+            },
+            {
+                "query": "OSPF troubleshooting",
+                "timestamp": "2024-01-20 13:15",
+                "results": 8,
+                "filters": ["CCNA", "Troubleshooting"]
+            },
+            {
+                "query": "ASR 1000 security features",
+                "timestamp": "2024-01-20 11:45",
+                "results": 15,
+                "filters": ["Security", "Best Practices"]
+            }
+        ]
+        
+        return {
+            "status": "success",
+            "search_history": search_history,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def get_saved_searches(self) -> Dict[str, Any]:
+        """Get saved searches"""
+        # Mock saved searches
+        saved_searches = [
+            {
+                "id": "search_1",
+                "name": "CCNP Routing Protocols",
+                "query": "BGP OSPF EIGRP configuration",
+                "filters": ["CCNP", "Routing", "Configuration"],
+                "created": "2024-01-15",
+                "lastUsed": "2024-01-20"
+            },
+            {
+                "id": "search_2",
+                "name": "Security Best Practices",
+                "query": "firewall ACL security policies",
+                "filters": ["Security", "Best Practices", "CCNA Security"],
+                "created": "2024-01-10",
+                "lastUsed": "2024-01-18"
+            }
+        ]
+        
+        return {
+            "status": "success",
+            "saved_searches": saved_searches,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def add_active_task(self, task: Dict[str, Any]) -> None:
+        """Add an active task to monitoring"""
+        if "monitoring" not in self.config:
+            self.config["monitoring"] = {
+                "active_tasks": [],
+                "error_logs": []
+            }
+        
+        self.config["monitoring"]["active_tasks"].append({
+            "id": task.get("id", str(uuid.uuid4())),
+            "name": task.get("name", "Unknown Task"),
+            "status": task.get("status", "running"),
+            "progress": task.get("progress", 0),
+            "details": task.get("details", ""),
+            "started_at": datetime.now().isoformat()
+        })
+    
+    async def update_active_task(self, task_id: str, updates: Dict[str, Any]) -> None:
+        """Update an active task"""
+        if "monitoring" in self.config and "active_tasks" in self.config["monitoring"]:
+            for task in self.config["monitoring"]["active_tasks"]:
+                if task["id"] == task_id:
+                    task.update(updates)
+                    task["updated_at"] = datetime.now().isoformat()
+                    break
+    
+    async def remove_active_task(self, task_id: str) -> None:
+        """Remove an active task"""
+        if "monitoring" in self.config and "active_tasks" in self.config["monitoring"]:
+            self.config["monitoring"]["active_tasks"] = [
+                task for task in self.config["monitoring"]["active_tasks"]
+                if task["id"] != task_id
+            ]
+    
+    async def add_error_log(self, error: Dict[str, Any]) -> None:
+        """Add an error to the log"""
+        if "monitoring" not in self.config:
+            self.config["monitoring"] = {
+                "active_tasks": [],
+                "error_logs": []
+            }
+        
+        self.config["monitoring"]["error_logs"].append({
+            "type": error.get("type", "Unknown Error"),
+            "message": error.get("message", ""),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "severity": error.get("severity", "error")
+        })
+        
+        # Keep only last 50 error logs
+        if len(self.config["monitoring"]["error_logs"]) > 50:
+            self.config["monitoring"]["error_logs"] = self.config["monitoring"]["error_logs"][-50:]
     
     async def get_config(self) -> Dict[str, Any]:
         """Get current configuration"""

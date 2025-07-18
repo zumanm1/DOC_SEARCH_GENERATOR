@@ -189,7 +189,13 @@ class DocumentSearchService:
             "QoS implementation",
             "EIGRP optimization",
             "VLAN configuration",
-            "Spanning tree protocol"
+            "Spanning tree protocol",
+            "Cisco IOS XE configuration",
+            "Network security best practices",
+            "Wireless controller setup",
+            "Voice over IP configuration",
+            "Data center switching",
+            "Service provider routing"
         ]
         
         # Filter suggestions based on partial query
@@ -198,3 +204,114 @@ class DocumentSearchService:
             return filtered[:5]
         
         return suggestions[:5]
+    
+    async def search_with_facets(self, query: str, facets: Dict[str, List[str]] = None,
+                                date_range: Dict[str, str] = None, sort_by: str = "relevance") -> Dict[str, Any]:
+        """Advanced search with faceted navigation"""
+        
+        # Perform base search
+        base_results = await self.search_documents(query)
+        
+        # Apply facet filters
+        if facets:
+            filtered_results = []
+            for result in base_results:
+                include_result = True
+                
+                # Check certification level facet
+                if "certification_levels" in facets and facets["certification_levels"]:
+                    if not any(cert in result["certificationLevel"] for cert in facets["certification_levels"]):
+                        include_result = False
+                
+                # Check technology category facet
+                if "technology_categories" in facets and facets["technology_categories"]:
+                    # Simulate technology categorization based on title/summary
+                    doc_categories = self._extract_technology_categories(result)
+                    if not any(cat in doc_categories for cat in facets["technology_categories"]):
+                        include_result = False
+                
+                # Check document type facet
+                if "document_types" in facets and facets["document_types"]:
+                    if result["documentType"] not in facets["document_types"]:
+                        include_result = False
+                
+                if include_result:
+                    filtered_results.append(result)
+            
+            base_results = filtered_results
+        
+        # Apply date range filter
+        if date_range:
+            # In production, implement proper date filtering
+            pass
+        
+        # Apply sorting
+        if sort_by == "relevance":
+            base_results.sort(key=lambda x: x["relevanceScore"], reverse=True)
+        elif sort_by == "date":
+            base_results.sort(key=lambda x: x["dateAdded"], reverse=True)
+        elif sort_by == "title":
+            base_results.sort(key=lambda x: x["title"])
+        
+        # Generate facet counts
+        facet_counts = self._generate_facet_counts(base_results)
+        
+        return {
+            "results": base_results,
+            "facet_counts": facet_counts,
+            "total_results": len(base_results),
+            "query": query,
+            "applied_facets": facets or {},
+            "sort_by": sort_by
+        }
+    
+    def _extract_technology_categories(self, document: Dict[str, Any]) -> List[str]:
+        """Extract technology categories from document"""
+        categories = []
+        title_lower = document["title"].lower()
+        summary_lower = document["summary"].lower()
+        
+        category_keywords = {
+            "Routing": ["bgp", "ospf", "eigrp", "rip", "routing", "route"],
+            "Switching": ["vlan", "stp", "spanning", "switch", "switching"],
+            "Security": ["asa", "firewall", "acl", "security", "vpn"],
+            "Wireless": ["wireless", "wifi", "wlan", "access point", "controller"],
+            "Voice": ["voice", "voip", "cucm", "unity", "telephony"],
+            "Data Center": ["nexus", "data center", "datacenter", "fabric"],
+            "Service Provider": ["mpls", "service provider", "carrier", "isp"]
+        }
+        
+        for category, keywords in category_keywords.items():
+            if any(keyword in title_lower or keyword in summary_lower for keyword in keywords):
+                categories.append(category)
+        
+        return categories if categories else ["General"]
+    
+    def _generate_facet_counts(self, results: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
+        """Generate facet counts for search results"""
+        facet_counts = {
+            "certification_levels": {},
+            "technology_categories": {},
+            "document_types": {},
+            "sources": {}
+        }
+        
+        for result in results:
+            # Count certification levels
+            for cert in result["certificationLevel"]:
+                facet_counts["certification_levels"][cert] = facet_counts["certification_levels"].get(cert, 0) + 1
+            
+            # Count technology categories
+            categories = self._extract_technology_categories(result)
+            for category in categories:
+                facet_counts["technology_categories"][category] = facet_counts["technology_categories"].get(category, 0) + 1
+            
+            # Count document types
+            doc_type = result["documentType"]
+            facet_counts["document_types"][doc_type] = facet_counts["document_types"].get(doc_type, 0) + 1
+            
+            # Count sources
+            source = result["source"]
+            facet_counts["sources"][source] = facet_counts["sources"].get(source, 0) + 1
+        
+        return facet_counts

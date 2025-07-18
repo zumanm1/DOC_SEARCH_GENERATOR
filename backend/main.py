@@ -125,6 +125,14 @@ async def handle_websocket_message(client_id: str, message: Dict[str, Any]):
             await handle_get_status(client_id, data)
         elif action == "test_llm_connection":
             await handle_test_llm_connection(client_id, data)
+        elif action == "check_document_updates":
+            await handle_check_document_updates(client_id, data)
+        elif action == "get_search_history":
+            await handle_get_search_history(client_id, data)
+        elif action == "get_saved_searches":
+            await handle_get_saved_searches(client_id, data)
+        elif action == "advanced_search":
+            await handle_advanced_search(client_id, data)
         else:
             await websocket_manager.send_error(client_id, f"Unknown action: {action}")
             
@@ -352,6 +360,63 @@ async def handle_get_status(client_id: str, data: Dict[str, Any]):
         
     except Exception as e:
         await websocket_manager.send_error(client_id, f"Status error: {str(e)}")
+
+async def handle_check_document_updates(client_id: str, data: Dict[str, Any]):
+    """Handle document update check requests"""
+    try:
+        result = await system_config.check_document_updates()
+        
+        await websocket_manager.send_message(client_id, {
+            "type": "document_updates_checked",
+            "result": result
+        })
+        
+    except Exception as e:
+        await websocket_manager.send_error(client_id, f"Document update check error: {str(e)}")
+
+async def handle_get_search_history(client_id: str, data: Dict[str, Any]):
+    """Handle search history requests"""
+    try:
+        result = await system_config.get_search_history()
+        
+        await websocket_manager.send_message(client_id, {
+            "type": "search_history",
+            "result": result
+        })
+        
+    except Exception as e:
+        await websocket_manager.send_error(client_id, f"Search history error: {str(e)}")
+
+async def handle_get_saved_searches(client_id: str, data: Dict[str, Any]):
+    """Handle saved searches requests"""
+    try:
+        result = await system_config.get_saved_searches()
+        
+        await websocket_manager.send_message(client_id, {
+            "type": "saved_searches",
+            "result": result
+        })
+        
+    except Exception as e:
+        await websocket_manager.send_error(client_id, f"Saved searches error: {str(e)}")
+
+async def handle_advanced_search(client_id: str, data: Dict[str, Any]):
+    """Handle advanced search with facets"""
+    try:
+        result = await document_search.search_with_facets(
+            query=data.get("query", ""),
+            facets=data.get("facets", {}),
+            date_range=data.get("date_range"),
+            sort_by=data.get("sort_by", "relevance")
+        )
+        
+        await websocket_manager.send_message(client_id, {
+            "type": "advanced_search_results",
+            "result": result
+        })
+        
+    except Exception as e:
+        await websocket_manager.send_error(client_id, f"Advanced search error: {str(e)}")
 
 # REST API endpoints for basic operations
 @app.get("/")
