@@ -135,9 +135,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   });
   const [selectedPdfs, setSelectedPdfs] = useState<string[]>([]);
   const [discoveredPdfs, setDiscoveredPdfs] = useState<string[]>([]);
-  const [selectedOutputPhase, setSelectedOutputPhase] = useState<
-    1 | 2 | 3 | 4 | 5
-  >(1);
+  const [selectedOutputPhases, setSelectedOutputPhases] = useState<
+    (1 | 2 | 3 | 4 | 5)[]
+  >([1]);
 
   // WebSocket connection for backend communication
   const { isConnected, sendMessage, onMessage } = useWebSocket("dashboard");
@@ -203,117 +203,134 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const startStage2 = async (
     pdfFiles: string[],
-    outputPhase: 1 | 2 | 3 | 4 | 5 = selectedOutputPhase,
+    outputPhases: (1 | 2 | 3 | 4 | 5)[] = selectedOutputPhases,
   ) => {
-    if (!pdfFiles || pdfFiles.length === 0) return;
+    if (
+      !pdfFiles ||
+      pdfFiles.length === 0 ||
+      !outputPhases ||
+      outputPhases.length === 0
+    )
+      return;
 
-    setPipelineStatus((prev) => ({
-      ...prev,
-      stage2: {
-        ...prev.stage2,
-        status: "running",
-        progress: 0,
-        currentStep: `Initializing PHASE ${outputPhase} processing for ${pdfFiles.length} file${pdfFiles.length > 1 ? "s" : ""}...`,
-        outputPhase,
-      },
-    }));
+    // Process each phase sequentially
+    for (let phaseIndex = 0; phaseIndex < outputPhases.length; phaseIndex++) {
+      const currentPhase = outputPhases[phaseIndex];
 
-    const phaseSteps = {
-      1: [
-        "Checking GPU availability (Ollama/Groq)...",
-        "Extracting text from seed PDF...",
-        "Generating synthetic error patterns (GPU)...",
-        "Creating best practices library (GPU)...",
-        "Generating troubleshooting scenarios (GPU)...",
-        "Building configuration examples (GPU)...",
-        "Combining real + synthetic data...",
-        "Creating high-density embeddings (GPU)...",
-        "Optimizing for basic RAG accuracy...",
-        "Finalizing basic Chroma vector store...",
-      ],
-      2: [
-        "Initializing Hierarchical Index structure...",
-        "Parsing configurations into structured chunks...",
-        "Building device memory filters...",
-        "Creating feature-area taxonomies...",
-        "Implementing version-aware filtering...",
-        "Optimizing retrieval precision...",
-        "Building foundational index (80-88% accuracy)...",
-        "Finalizing hierarchical vector store...",
-      ],
-      3: [
-        "Building Graph RAG knowledge graph...",
-        "Creating device-feature relationships...",
-        "Mapping error-solution dependencies...",
-        "Building version compatibility graph...",
-        "Implementing graph-aware retrieval...",
-        "Optimizing for dependency nuance...",
-        "Achieving low 90s accuracy target...",
-        "Finalizing Graph RAG layer...",
-      ],
-      4: [
-        "Initializing Agentic Loop framework...",
-        "Building tool execution pipeline...",
-        "Creating hypothesis validation system...",
-        "Implementing iterative evidence gathering...",
-        "Building command execution interface...",
-        "Creating validated case repository...",
-        "Optimizing for upper 90s accuracy...",
-        "Finalizing Agentic Loop system...",
-      ],
-      5: [
-        "Setting up continuous evaluation harness...",
-        "Building gold standard test sets...",
-        "Implementing regression monitoring...",
-        "Creating feedback capture system...",
-        "Building automated hardening pipeline...",
-        "Implementing accuracy maintenance...",
-        "Achieving ≥95% in-scope accuracy...",
-        "Finalizing continuous eval system...",
-      ],
-    };
+      setPipelineStatus((prev) => ({
+        ...prev,
+        stage2: {
+          ...prev.stage2,
+          status: "running",
+          progress: 0,
+          currentStep: `Initializing PHASE ${currentPhase} processing (${phaseIndex + 1}/${outputPhases.length}) for ${pdfFiles.length} file${pdfFiles.length > 1 ? "s" : ""}...`,
+          outputPhase: currentPhase,
+        },
+      }));
 
-    const steps = phaseSteps[outputPhase];
-    const totalSteps = steps.length * pdfFiles.length; // Account for processing multiple files
-    let currentStepIndex = 0;
+      const phaseSteps = {
+        1: [
+          "Checking GPU availability (Ollama/Groq)...",
+          "Extracting text from seed PDF...",
+          "Generating synthetic error patterns (GPU)...",
+          "Creating best practices library (GPU)...",
+          "Generating troubleshooting scenarios (GPU)...",
+          "Building configuration examples (GPU)...",
+          "Combining real + synthetic data...",
+          "Creating high-density embeddings (GPU)...",
+          "Optimizing for basic RAG accuracy...",
+          "Finalizing basic Chroma vector store...",
+        ],
+        2: [
+          "Initializing Hierarchical Index structure...",
+          "Parsing configurations into structured chunks...",
+          "Building device memory filters...",
+          "Creating feature-area taxonomies...",
+          "Implementing version-aware filtering...",
+          "Optimizing retrieval precision...",
+          "Building foundational index (80-88% accuracy)...",
+          "Finalizing hierarchical vector store...",
+        ],
+        3: [
+          "Building Graph RAG knowledge graph...",
+          "Creating device-feature relationships...",
+          "Mapping error-solution dependencies...",
+          "Building version compatibility graph...",
+          "Implementing graph-aware retrieval...",
+          "Optimizing for dependency nuance...",
+          "Achieving low 90s accuracy target...",
+          "Finalizing Graph RAG layer...",
+        ],
+        4: [
+          "Initializing Agentic Loop framework...",
+          "Building tool execution pipeline...",
+          "Creating hypothesis validation system...",
+          "Implementing iterative evidence gathering...",
+          "Building command execution interface...",
+          "Creating validated case repository...",
+          "Optimizing for upper 90s accuracy...",
+          "Finalizing Agentic Loop system...",
+        ],
+        5: [
+          "Setting up continuous evaluation harness...",
+          "Building gold standard test sets...",
+          "Implementing regression monitoring...",
+          "Creating feedback capture system...",
+          "Building automated hardening pipeline...",
+          "Implementing accuracy maintenance...",
+          "Achieving ≥95% in-scope accuracy...",
+          "Finalizing continuous eval system...",
+        ],
+      };
 
-    // Process each PDF file sequentially
-    for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
-      const currentFile = pdfFiles[fileIndex];
+      const steps = phaseSteps[currentPhase];
+      const totalSteps = steps.length * pdfFiles.length; // Account for processing multiple files
+      let currentStepIndex = 0;
 
-      for (let i = 0; i < steps.length; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-        currentStepIndex++;
-        const progress = (currentStepIndex / totalSteps) * 100;
+      // Process each PDF file sequentially for current phase
+      for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
+        const currentFile = pdfFiles[fileIndex];
 
-        // Simulate more realistic synthetic data generation
-        let syntheticExamples = 0;
-        if (i >= 2) {
-          // Exponential growth in synthetic examples, multiplied by number of files
-          const baseExamples =
-            Math.floor(Math.pow(2, i - 1) * 250) +
-            Math.floor(Math.random() * 500);
-          syntheticExamples = Math.min(
-            baseExamples * (fileIndex + 1),
-            15000 * pdfFiles.length,
-          );
+        for (let i = 0; i < steps.length; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          currentStepIndex++;
+          const phaseProgress = (currentStepIndex / totalSteps) * 100;
+          const overallProgress =
+            (phaseIndex * 100 + phaseProgress) / outputPhases.length;
+
+          // Simulate more realistic synthetic data generation
+          let syntheticExamples = 0;
+          if (i >= 2) {
+            // Exponential growth in synthetic examples, multiplied by number of files
+            const baseExamples =
+              Math.floor(Math.pow(2, i - 1) * 250) +
+              Math.floor(Math.random() * 500);
+            syntheticExamples = Math.min(
+              baseExamples * (fileIndex + 1),
+              15000 * pdfFiles.length,
+            );
+          }
+
+          const currentStep =
+            pdfFiles.length > 1
+              ? `[Phase ${currentPhase} - ${phaseIndex + 1}/${outputPhases.length}] [File ${fileIndex + 1}/${pdfFiles.length}: ${currentFile}] ${steps[i]}`
+              : `[Phase ${currentPhase} - ${phaseIndex + 1}/${outputPhases.length}] ${steps[i]}`;
+
+          setPipelineStatus((prev) => ({
+            ...prev,
+            stage2: {
+              ...prev.stage2,
+              progress: overallProgress,
+              currentStep,
+              syntheticExamples,
+              status:
+                phaseIndex === outputPhases.length - 1 &&
+                currentStepIndex === totalSteps
+                  ? "completed"
+                  : "running",
+            },
+          }));
         }
-
-        const currentStep =
-          pdfFiles.length > 1
-            ? `[File ${fileIndex + 1}/${pdfFiles.length}: ${currentFile}] ${steps[i]}`
-            : steps[i];
-
-        setPipelineStatus((prev) => ({
-          ...prev,
-          stage2: {
-            ...prev.stage2,
-            progress,
-            currentStep,
-            syntheticExamples,
-            status: currentStepIndex === totalSteps ? "completed" : "running",
-          },
-        }));
       }
     }
 
@@ -325,73 +342,56 @@ const Dashboard: React.FC<DashboardProps> = ({
     // }
   };
 
-  const startCoreFeaturePhase = async (phaseNumber: 1 | 2 | 3 | 4) => {
-    const phaseKey =
-      `phase${phaseNumber}` as keyof typeof pipelineStatus.coreFeatures;
+  const startCoreFeaturePhase = async (phaseNumbers: (1 | 2 | 3 | 4)[]) => {
+    // Process each phase sequentially
+    for (const phaseNumber of phaseNumbers) {
+      const phaseKey =
+        `phase${phaseNumber}` as keyof typeof pipelineStatus.coreFeatures;
 
-    const phaseDefinitions = {
-      1: {
-        title: "Real-Time Document Quality Assessment & Validation",
-        steps: [
-          "Initializing document quality scoring engine...",
-          "Setting up real-time validation pipelines...",
-          "Implementing content authenticity checks...",
-          "Building quality metrics dashboard...",
-          "Finalizing assessment automation...",
-        ],
-      },
-      2: {
-        title: "Intelligent Synthetic Data Templates & Customization",
-        steps: [
-          "Creating adaptive template generation system...",
-          "Building domain-specific customization engine...",
-          "Implementing intelligent pattern recognition...",
-          "Setting up template quality validation...",
-          "Finalizing customization interface...",
-        ],
-      },
-      3: {
-        title: "Vector Database Quality Metrics & Optimization",
-        steps: [
-          "Initializing vector quality analysis framework...",
-          "Building embedding similarity metrics...",
-          "Implementing retrieval accuracy optimization...",
-          "Setting up performance monitoring dashboard...",
-          "Finalizing optimization automation...",
-        ],
-      },
-      4: {
-        title: "Interactive RAG Testing & Validation Playground",
-        steps: [
-          "Creating interactive testing environment...",
-          "Building validation scenario generator...",
-          "Implementing real-time accuracy feedback...",
-          "Setting up A/B testing framework...",
-          "Finalizing playground interface...",
-        ],
-      },
-    };
-
-    const currentPhase = phaseDefinitions[phaseNumber];
-
-    setPipelineStatus((prev) => ({
-      ...prev,
-      coreFeatures: {
-        ...prev.coreFeatures,
-        [phaseKey]: {
-          ...prev.coreFeatures[phaseKey],
-          status: "running",
-          progress: 0,
-          currentStep: currentPhase.steps[0],
-          substep: 1,
+      const phaseDefinitions = {
+        1: {
+          title: "Real-Time Document Quality Assessment & Validation",
+          steps: [
+            "Initializing document quality scoring engine...",
+            "Setting up real-time validation pipelines...",
+            "Implementing content authenticity checks...",
+            "Building quality metrics dashboard...",
+            "Finalizing assessment automation...",
+          ],
         },
-      },
-    }));
+        2: {
+          title: "Intelligent Synthetic Data Templates & Customization",
+          steps: [
+            "Creating adaptive template generation system...",
+            "Building domain-specific customization engine...",
+            "Implementing intelligent pattern recognition...",
+            "Setting up template quality validation...",
+            "Finalizing customization interface...",
+          ],
+        },
+        3: {
+          title: "Vector Database Quality Metrics & Optimization",
+          steps: [
+            "Initializing vector quality analysis framework...",
+            "Building embedding similarity metrics...",
+            "Implementing retrieval accuracy optimization...",
+            "Setting up performance monitoring dashboard...",
+            "Finalizing optimization automation...",
+          ],
+        },
+        4: {
+          title: "Interactive RAG Testing & Validation Playground",
+          steps: [
+            "Creating interactive testing environment...",
+            "Building validation scenario generator...",
+            "Implementing real-time accuracy feedback...",
+            "Setting up A/B testing framework...",
+            "Finalizing playground interface...",
+          ],
+        },
+      };
 
-    // Execute each substep
-    for (let i = 0; i < currentPhase.steps.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      const progress = ((i + 1) / currentPhase.steps.length) * 100;
+      const currentPhase = phaseDefinitions[phaseNumber];
 
       setPipelineStatus((prev) => ({
         ...prev,
@@ -399,14 +399,34 @@ const Dashboard: React.FC<DashboardProps> = ({
           ...prev.coreFeatures,
           [phaseKey]: {
             ...prev.coreFeatures[phaseKey],
-            progress,
-            currentStep: currentPhase.steps[i],
-            substep: i + 1,
-            status:
-              i === currentPhase.steps.length - 1 ? "completed" : "running",
+            status: "running",
+            progress: 0,
+            currentStep: `[Phase ${phaseNumber}/${phaseNumbers.length}] ${currentPhase.steps[0]}`,
+            substep: 1,
           },
         },
       }));
+
+      // Execute each substep
+      for (let i = 0; i < currentPhase.steps.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const progress = ((i + 1) / currentPhase.steps.length) * 100;
+
+        setPipelineStatus((prev) => ({
+          ...prev,
+          coreFeatures: {
+            ...prev.coreFeatures,
+            [phaseKey]: {
+              ...prev.coreFeatures[phaseKey],
+              progress,
+              currentStep: `[Phase ${phaseNumber}/${phaseNumbers.length}] ${currentPhase.steps[i]}`,
+              substep: i + 1,
+              status:
+                i === currentPhase.steps.length - 1 ? "completed" : "running",
+            },
+          },
+        }));
+      }
     }
   };
 
@@ -884,11 +904,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <Button
                       onClick={() =>
                         selectedPdfs.length > 0 &&
-                        startStage2(selectedPdfs, selectedOutputPhase)
+                        startStage2(selectedPdfs, selectedOutputPhases)
                       }
                       disabled={
                         pipelineStatus.stage1.status !== "completed" ||
                         selectedPdfs.length === 0 ||
+                        selectedOutputPhases.length === 0 ||
                         pipelineStatus.stage2.status === "running"
                       }
                       variant="secondary"
@@ -900,8 +921,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <Factory className="h-4 w-4" />
                       )}
                       {pipelineStatus.stage2.status === "completed"
-                        ? `Restart Stage 2 (Phase ${selectedOutputPhase}) - ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}`
-                        : `Start Stage 2 (Phase ${selectedOutputPhase}) - ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}`}
+                        ? `Restart Stage 2 (${selectedOutputPhases.length} Phase${selectedOutputPhases.length > 1 ? "s" : ""}) - ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}`
+                        : `Start Stage 2 (${selectedOutputPhases.length} Phase${selectedOutputPhases.length > 1 ? "s" : ""}) - ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}`}
                     </Button>
 
                     <Button
@@ -929,6 +950,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedOutputPhases.length} of 5 phases selected
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setSelectedOutputPhases([1, 2, 3, 4, 5])
+                          }
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedOutputPhases([])}
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 gap-3">
                       {[
                         {
@@ -977,7 +1021,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <div
                           key={phaseInfo.phase}
                           className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                            selectedOutputPhase === phaseInfo.phase
+                            selectedOutputPhases.includes(phaseInfo.phase)
                               ? phaseInfo.color === "blue"
                                 ? "border-blue-500 bg-blue-50"
                                 : phaseInfo.color === "green"
@@ -989,9 +1033,22 @@ const Dashboard: React.FC<DashboardProps> = ({
                                       : "border-red-500 bg-red-50"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
-                          onClick={() =>
-                            setSelectedOutputPhase(phaseInfo.phase)
-                          }
+                          onClick={() => {
+                            if (
+                              selectedOutputPhases.includes(phaseInfo.phase)
+                            ) {
+                              setSelectedOutputPhases(
+                                selectedOutputPhases.filter(
+                                  (p) => p !== phaseInfo.phase,
+                                ),
+                              );
+                            } else {
+                              setSelectedOutputPhases([
+                                ...selectedOutputPhases,
+                                phaseInfo.phase,
+                              ]);
+                            }
+                          }}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -1011,7 +1068,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 >
                                   {phaseInfo.accuracy}
                                 </span>
-                                {selectedOutputPhase === phaseInfo.phase && (
+                                {selectedOutputPhases.includes(
+                                  phaseInfo.phase,
+                                ) && (
                                   <CheckCircle
                                     className={`h-4 w-4 ${
                                       phaseInfo.color === "blue"
@@ -1039,16 +1098,30 @@ const Dashboard: React.FC<DashboardProps> = ({
                       ))}
                     </div>
 
-                    {selectedOutputPhase > 1 && (
+                    {selectedOutputPhases.length > 1 && (
                       <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
                         <p className="text-sm text-amber-800 font-medium">
-                          Phase {selectedOutputPhase} Selected: Advanced RAG
-                          Architecture
+                          {selectedOutputPhases.length} Phase
+                          {selectedOutputPhases.length > 1 ? "s" : ""} Selected:{" "}
+                          {selectedOutputPhases.sort().join(", ")}
                         </p>
                         <p className="text-xs text-amber-600 mt-1">
-                          This phase includes all previous phase capabilities
-                          plus advanced features for higher accuracy.
+                          Phases will be processed sequentially. Each phase
+                          builds upon previous capabilities for higher accuracy.
                         </p>
+                        {selectedOutputPhases.length > 1 && (
+                          <div className="mt-2 text-xs text-amber-700">
+                            Processing order:{" "}
+                            {selectedOutputPhases.sort().map((phase, index) => (
+                              <span key={phase}>
+                                Phase {phase}
+                                {index < selectedOutputPhases.length - 1
+                                  ? " → "
+                                  : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1711,19 +1784,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <Card>
                     <CardHeader>
                       <CardTitle>
-                        Configure Phase {selectedOutputPhase} Parameters
+                        Configure Phase {selectedOutputPhases.length} Parameters
                       </CardTitle>
                       <CardDescription>
-                        Configure Phase {selectedOutputPhase} parameters for
-                        transforming {selectedPdfs.length} PDF
+                        Configure Phase {selectedOutputPhases.length} parameters
+                        for transforming {selectedPdfs.length} PDF
                         {selectedPdfs.length > 1 ? "s" : ""} into a{" "}
-                        {selectedOutputPhase === 1
+                        {selectedOutputPhases.length === 1
                           ? "basic"
-                          : selectedOutputPhase === 2
+                          : selectedOutputPhases.length === 2
                             ? "hierarchical"
-                            : selectedOutputPhase === 3
+                            : selectedOutputPhases.length === 3
                               ? "graph-enhanced"
-                              : selectedOutputPhase === 4
+                              : selectedOutputPhases.length === 4
                                 ? "agentic"
                                 : "continuously-evaluated"}{" "}
                         vector database
@@ -1811,24 +1884,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
                           <p className="text-sm text-yellow-800">
                             <strong>
-                              Phase {selectedOutputPhase} Process:
+                              Phase {selectedOutputPhases.length} Process:
                             </strong>{" "}
-                            {selectedOutputPhase === 1
+                            {selectedOutputPhases.length === 1
                               ? "Extract text from seed PDFs → Generate synthetic data → Create basic embeddings → Output standard vector database"
-                              : selectedOutputPhase === 2
+                              : selectedOutputPhases.length === 2
                                 ? "Parse configs into structured chunks → Build hierarchical index → Implement memory filters → Achieve 80-88% accuracy"
-                                : selectedOutputPhase === 3
+                                : selectedOutputPhases.length === 3
                                   ? "Build knowledge graph → Map relationships → Implement graph-aware retrieval → Target low 90s accuracy"
-                                  : selectedOutputPhase === 4
+                                  : selectedOutputPhases.length === 4
                                     ? "Create agentic framework → Build tool execution → Implement validation loops → Push upper 90s accuracy"
                                     : "Setup continuous evaluation → Build gold standards → Implement monitoring → Maintain ≥95% accuracy"}
                           </p>
                         </div>
                         <Button
                           onClick={() =>
-                            startStage2(selectedPdfs, selectedOutputPhase)
+                            startStage2(selectedPdfs, selectedOutputPhases)
                           }
-                          disabled={pipelineStatus.stage2.status === "running"}
+                          disabled={
+                            pipelineStatus.stage2.status === "running" ||
+                            selectedOutputPhases.length === 0
+                          }
                           className="w-full flex items-center gap-2"
                         >
                           {pipelineStatus.stage2.status === "running" ? (
@@ -1837,8 +1913,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <Factory className="h-4 w-4" />
                           )}
                           {pipelineStatus.stage2.status === "running"
-                            ? `Phase ${selectedOutputPhase} Processing ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}...`
-                            : `Start Phase ${selectedOutputPhase} Transformation (${selectedPdfs.length} output${selectedPdfs.length > 1 ? "s" : ""})`}
+                            ? `Processing ${selectedOutputPhases.length} Phase${selectedOutputPhases.length > 1 ? "s" : ""} for ${selectedPdfs.length} file${selectedPdfs.length > 1 ? "s" : ""}...`
+                            : `Start ${selectedOutputPhases.length} Phase${selectedOutputPhases.length > 1 ? "s" : ""} Transformation (${selectedPdfs.length} output${selectedPdfs.length > 1 ? "s" : ""})`}
                         </Button>
                       </div>
                     </CardContent>
@@ -2201,7 +2277,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <Button
                             key={phaseNum}
                             onClick={() =>
-                              startCoreFeaturePhase(phaseNum as 1 | 2 | 3 | 4)
+                              startCoreFeaturePhase([phaseNum as 1 | 2 | 3 | 4])
                             }
                             disabled={phase.status === "running"}
                             variant={
@@ -2237,27 +2313,69 @@ const Dashboard: React.FC<DashboardProps> = ({
                       })}
                     </div>
 
-                    {/* Run All Phases Button */}
-                    <div className="flex justify-center">
-                      <Button
-                        onClick={async () => {
-                          for (let i = 1; i <= 4; i++) {
-                            await startCoreFeaturePhase(i as 1 | 2 | 3 | 4);
-                            // Small delay between phases
-                            await new Promise((resolve) =>
-                              setTimeout(resolve, 1000),
-                            );
-                          }
-                        }}
-                        disabled={Object.values(
-                          pipelineStatus.coreFeatures,
-                        ).some((phase) => phase.status === "running")}
-                        className="flex items-center gap-2 px-8"
-                        size="lg"
-                      >
-                        <Zap className="h-5 w-5" />
-                        Run All Enhancement Phases
-                      </Button>
+                    {/* Multi-Select and Run All Phases */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                          Select phases to run sequentially
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const allPhases = [1, 2, 3, 4] as (
+                                | 1
+                                | 2
+                                | 3
+                                | 4
+                              )[];
+                              startCoreFeaturePhase(allPhases);
+                            }}
+                            disabled={Object.values(
+                              pipelineStatus.coreFeatures,
+                            ).some((phase) => phase.status === "running")}
+                          >
+                            Run All Phases
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const selectedPhases = [1, 2] as (
+                                | 1
+                                | 2
+                                | 3
+                                | 4
+                              )[];
+                              startCoreFeaturePhase(selectedPhases);
+                            }}
+                            disabled={Object.values(
+                              pipelineStatus.coreFeatures,
+                            ).some((phase) => phase.status === "running")}
+                          >
+                            Run Phases 1-2
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const selectedPhases = [3, 4] as (
+                                | 1
+                                | 2
+                                | 3
+                                | 4
+                              )[];
+                              startCoreFeaturePhase(selectedPhases);
+                            }}
+                            disabled={Object.values(
+                              pipelineStatus.coreFeatures,
+                            ).some((phase) => phase.status === "running")}
+                          >
+                            Run Phases 3-4
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
